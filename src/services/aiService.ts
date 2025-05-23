@@ -24,7 +24,6 @@ const getFromCache = (topic: string, promptType: string): string | null => {
   
   if (!entry) return null;
   
-  // Check if cache entry has expired
   if (Date.now() - entry.timestamp > CACHE_EXPIRY) {
     cache.delete(key);
     return null;
@@ -61,7 +60,6 @@ const getErrorMessage = (error: any): string => {
 
 export async function generateContent(topic: string, promptType: string): Promise<string> {
   try {
-    // Check cache first
     const cachedContent = getFromCache(topic, promptType);
     if (cachedContent) {
       return cachedContent;
@@ -75,7 +73,7 @@ export async function generateContent(topic: string, promptType: string): Promis
         messages: [
           {
             role: "system",
-            content: "You are an expert educational AI assistant, skilled at explaining complex topics in simple terms with relevant examples and analogies. Your responses should be detailed, engaging, and tailored to the student's needs. For follow-up questions, respond with a JSON array of question objects."
+            content: "You are an expert educational AI assistant, skilled at explaining complex topics in simple terms with relevant examples and analogies. Format your responses with clear headings, emojis for visual engagement, and well-structured sections. Use bullet points, numbered lists, and proper spacing for readability."
           },
           {
             role: "user",
@@ -96,15 +94,14 @@ export async function generateContent(topic: string, promptType: string): Promis
     const result = await backOff(
       () => generateCompletion(),
       {
-        numOfAttempts: 5, // Increased from 3
-        startingDelay: 2000, // Increased from 1000
+        numOfAttempts: 5,
+        startingDelay: 2000,
         timeMultiple: 2,
-        maxDelay: 20000, // Increased from 10000
+        maxDelay: 20000,
         retry: (error: RetryableError) => isRetryableError(error),
       }
     );
 
-    // Save successful response to cache
     if (result) {
       saveToCache(topic, promptType, result);
     }
@@ -122,61 +119,186 @@ export async function generateContent(topic: string, promptType: string): Promis
 
 function generatePrompt(topic: string, promptType: string): string {
   const promptTemplates = {
-    'explain-simply': `Explain ${topic} in simple terms. Your response should include:
-1. A clear, beginner-friendly explanation using everyday analogies
-2. Step-by-step breakdown of key concepts
-3. Real-world examples that illustrate the topic
-4. Common applications or uses
-5. Key takeaways for better understanding`,
+    'explain-simply': `Explain ${topic} in simple terms. Structure your response as follows:
+
+🎯 Explanation using everyday analogies
+• Start with a clear, relatable analogy
+• Use simple language and familiar concepts
+• Break down complex ideas into digestible parts
+
+📚 Step-by-step breakdown of key concepts
+• List each important concept with a brief explanation
+• Use bullet points for clarity
+• Include relevant formulas with explanations
+
+🌟 Real-world examples
+• Provide 2-3 concrete examples from everyday life
+• Explain how the concept applies in each case
+• Highlight the practical significance
+
+⚡ Common applications or uses
+• List practical applications
+• Explain how it's used in technology or industry
+• Mention modern innovations using this concept
+
+💡 Key takeaways
+• Summarize the most important points
+• Highlight what to remember
+• Connect to related concepts`,
     
-    'visual-guide': `Create a detailed textual description of ${topic} that emphasizes visual learning. Include:
-1. Clear descriptions of key visual elements and diagrams
-2. Step-by-step explanations of processes or relationships
-3. Comparisons to familiar visual concepts
-4. Spatial relationships and interactions between components
-5. Description of any important patterns or structures`,
+    'visual-guide': `Create a detailed description of ${topic} emphasizing visual learning. Structure as follows:
+
+🎨 Visual Overview
+• Describe the main visual elements
+• Explain key relationships and connections
+• Use spatial analogies for better understanding
+
+📊 Key Components
+• Break down each visual element
+• Explain their relationships
+• Use clear comparisons to familiar objects
+
+🔄 Process Visualization
+• Describe step-by-step how it works
+• Use clear transition markers
+• Include movement and change descriptions
+
+📐 Important Patterns
+• Highlight recurring patterns
+• Explain visual relationships
+• Note key structural elements`,
     
-    'interactive-practice': `Create an interactive learning session about ${topic} with:
-1. A warm-up question to assess basic understanding
-2. 3 practice problems of increasing difficulty
-3. Detailed step-by-step solutions
-4. Common mistakes to avoid
-5. Tips for problem-solving`,
+    'interactive-practice': `Create an interactive learning session about ${topic}. Format as follows:
+
+🔍 Warm-up Question
+• Start with a basic concept check
+• Include the answer with explanation
+• Point out key learning elements
+
+📝 Practice Problems
+• Present 3 problems of increasing difficulty
+• Include step-by-step solutions
+• Highlight common pitfalls to avoid
+
+🎯 Problem-Solving Tips
+• Share effective strategies
+• List important formulas
+• Provide memory aids
+
+⚠️ Common Mistakes
+• Identify typical errors
+• Explain why they occur
+• Show how to avoid them`,
     
-    'real-applications': `Explain real-world applications of ${topic}:
-1. 4-5 practical examples where this concept is used
-2. Detailed explanation of how it's implemented in each case
-3. Impact and importance in various industries
-4. Future potential applications
-5. Benefits and limitations in real-world scenarios`,
-    
-    'deep-dive': `Provide an advanced explanation of ${topic}:
-1. Theoretical foundations and principles
-2. Mathematical formulations and proofs
-3. Edge cases and special considerations
-4. Current research developments
-5. Advanced applications and implications`,
-    
-    'exam-mastery': `Create a comprehensive exam preparation guide for ${topic}:
-1. Essential concepts and formulas
-2. Common question types and solution strategies
-3. Step-by-step problem-solving approaches
-4. Practice questions with detailed solutions
-5. Tips for avoiding common mistakes`,
-    
-    'concept-map': `Create a detailed description of how ${topic} connects with other concepts:
-1. Prerequisites and foundational concepts
-2. Related topics and their relationships
-3. Advanced applications and extensions
-4. Interdisciplinary connections
-5. Progressive learning path`,
-    
-    'common-mistakes': `Explain common misconceptions about ${topic}:
-1. List of frequent misunderstandings
-2. Reasons why these misconceptions occur
-3. Correct explanations with evidence
-4. Examples highlighting the differences
-5. Tips for avoiding these mistakes`,
+    'real-applications': `Explain real-world applications of ${topic}. Structure as follows:
+
+🌟 Practical Examples
+• List 4-5 real-world applications
+• Explain how it works in each case
+• Highlight the benefits and impact
+
+🔧 Implementation Details
+• Describe how it's used in practice
+• Explain technical considerations
+• Note important variations
+
+🚀 Future Potential
+• Discuss emerging applications
+• Highlight new developments
+• Consider future possibilities
+
+⚖️ Limitations and Considerations
+• Discuss practical constraints
+• Note important trade-offs
+• Suggest workarounds`,
+
+    'deep-dive': `Provide an advanced explanation of ${topic}. Structure as follows:
+
+🎓 Theoretical Foundations
+• Explain core principles
+• Present key theories
+• Define important terms
+
+📐 Mathematical Framework
+• Present relevant equations
+• Explain each component
+• Show relationships between concepts
+
+🔬 Advanced Concepts
+• Explore complex aspects
+• Discuss edge cases
+• Examine special conditions
+
+🔮 Current Research
+• Highlight recent developments
+• Discuss ongoing studies
+• Note future directions`,
+
+    'exam-mastery': `Create a comprehensive exam preparation guide for ${topic}. Structure as follows:
+
+📚 Essential Concepts
+• List key topics to master
+• Explain critical formulas
+• Highlight important relationships
+
+✍️ Question Types
+• Show common exam formats
+• Provide solution strategies
+• Include practice examples
+
+🎯 Problem-Solving Approach
+• Present systematic methods
+• Show worked examples
+• Explain key steps
+
+⚠️ Common Pitfalls
+• Identify frequent mistakes
+• Explain correct approaches
+• Provide memory aids`,
+
+    'concept-map': `Create a detailed description of how ${topic} connects with other concepts. Structure as follows:
+
+🌱 Foundation Concepts
+• List prerequisites
+• Explain basic principles
+• Show building blocks
+
+🔄 Related Topics
+• Identify connected concepts
+• Explain relationships
+• Show dependencies
+
+🌟 Advanced Applications
+• Present complex uses
+• Show concept integration
+• Highlight synergies
+
+📈 Learning Path
+• Suggest study sequence
+• Note key milestones
+• Recommend resources`,
+
+    'common-mistakes': `Explain common misconceptions about ${topic}. Structure as follows:
+
+❌ Common Misconceptions
+• List frequent misunderstandings
+• Explain why they occur
+• Show correct thinking
+
+✅ Correct Understanding
+• Present accurate explanations
+• Provide evidence
+• Use clear examples
+
+🔍 Analysis
+• Compare wrong vs right
+• Explain key differences
+• Show how to verify
+
+💡 Prevention Tips
+• Share learning strategies
+• Provide memory aids
+• List verification methods`,
     
     'follow-up': `Based on the topic "${topic}", generate 5 thought-provoking follow-up questions that would help deepen understanding. Return the response in this JSON format:
 [
@@ -188,12 +310,32 @@ function generatePrompt(topic: string, promptType: string): string {
 ]
 Include a mix of theoretical understanding, practical applications, and problem-solving questions.`,
     
-    'follow-up-answer': `Provide a comprehensive answer about ${topic}:
-1. Clear and detailed explanation
-2. Relevant examples and applications
-3. Connections to related concepts
-4. Important formulas or principles
-5. Further learning suggestions`
+    'follow-up-answer': `Provide a comprehensive answer about ${topic}. Structure as follows:
+
+📚 Detailed Explanation
+• Present clear concepts
+• Use simple language
+• Show relationships
+
+🌟 Examples & Applications
+• Provide real-world examples
+• Show practical uses
+• Demonstrate relevance
+
+🔗 Related Concepts
+• Connect to other topics
+• Show dependencies
+• Highlight similarities
+
+📐 Key Principles
+• List important formulas
+• Explain core rules
+• Note exceptions
+
+📚 Further Learning
+• Suggest next topics
+• Recommend resources
+• Provide practice ideas`
   };
 
   return promptTemplates[promptType as keyof typeof promptTemplates] || promptTemplates['explain-simply'];
