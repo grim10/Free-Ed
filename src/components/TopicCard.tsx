@@ -58,22 +58,29 @@ const TopicCard: React.FC<TopicCardProps> = ({
       tabIndex={0}
       aria-pressed={isActive}
     >
-      {/* Header Section */}
+      {/* Card Header */}
       <div className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-lg">{getStatusIcon(status)}</span>
+        {/* Status and Tags */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="text-xl" title={`Status: ${status}`}>
+            {getStatusIcon(status)}
+          </span>
           {isRecommended && (
-            <span className="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">
+            <span className="bg-blue-500 text-white text-xs font-medium px-2.5 py-1 rounded-full">
               Recommended
             </span>
           )}
-          <span className={`text-xs px-2 py-0.5 rounded-full ${difficultyClass}`}>
+          <span className={`${difficultyClass} text-xs font-medium px-2.5 py-1 rounded-full`}>
             {topic.difficulty}
           </span>
         </div>
 
-        <div className="flex items-start justify-between">
-          <h3 className={`text-base ${isActive ? 'font-semibold' : 'font-medium'} text-gray-900 line-clamp-2`}>
+        {/* Title and Expand Button */}
+        <div className="flex items-start justify-between gap-3">
+          <h3 className={`text-base leading-snug tracking-tight
+            ${isActive ? 'font-semibold text-blue-900' : 'font-medium text-gray-900'}
+            ${isExpanded ? '' : 'line-clamp-2'}`}
+          >
             {topic.title}
           </h3>
           <button 
@@ -81,26 +88,34 @@ const TopicCard: React.FC<TopicCardProps> = ({
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
-            className="ml-2 text-gray-400 hover:text-gray-600"
+            className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full 
+              hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+            aria-label={isExpanded ? 'Collapse topic' : 'Expand topic'}
           >
             {isExpanded ? '▼' : '▶'}
           </button>
         </div>
 
         {/* Collapsible Content */}
-        <div className={`mt-2 space-y-2 transition-all duration-300 ${isExpanded ? 'block' : 'hidden'}`}>
+        <div className={`mt-3 space-y-2 transition-all duration-300 
+          ${isExpanded ? 'block opacity-100' : 'hidden opacity-0'}`}
+        >
           {topic.keywords.map((keyword, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <span className="text-blue-500">•</span>
-              <span className="text-sm text-gray-700">{keyword}</span>
+            <div key={index} className="flex items-center gap-2.5 text-sm">
+              <span className="text-blue-500 text-lg leading-none">•</span>
+              <span className="text-gray-700 font-normal leading-relaxed">
+                {keyword}
+              </span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Tooltip for full title */}
-      {showFullTitle && (
-        <div className="absolute z-20 top-full left-0 mt-2 p-2 bg-gray-800 text-white text-sm rounded shadow-lg max-w-xs">
+      {/* Full Title Tooltip */}
+      {showFullTitle && !isExpanded && (
+        <div className="absolute z-20 top-full left-0 mt-2 p-3 bg-gray-800 
+          text-white text-sm font-normal rounded-lg shadow-lg max-w-xs leading-relaxed"
+        >
           {topic.title}
         </div>
       )}
