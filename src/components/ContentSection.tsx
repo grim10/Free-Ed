@@ -43,25 +43,31 @@ const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) =
   const metaDescription = useMemo(() => {
     const firstParaMatch = content.content.trim().match(/^(?:[^#\n].+)(?=\n)/);
     let desc = firstParaMatch ? firstParaMatch[0] : content.content.slice(0, 160);
-    return desc.replace(/[#_*>`~\-!\[\]]/g, '').trim();
+
+    // Remove markdown characters
+    const cleanupRegex = new RegExp('[#_*>`~\\-!\[\]]', 'g');
+    return desc.replace(cleanupRegex, '').trim();
   }, [content]);
 
   // JSON-LD structured data for Article schema
-  const jsonLd = useMemo(() => ({
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: content.title,
-    description: metaDescription,
-    datePublished: new Date().toISOString(),
-    author: { "@type": "Organization", name: "YourSiteName" },
-    articleBody: content.content
-  }), [content, metaDescription]);
+  const jsonLd = useMemo(
+    () => ({
+      "@context": "https://schema.org",
+      "@type": "Article",
+      headline: content.title,
+      description: metaDescription,
+      datePublished: new Date().toISOString(),
+      author: { "@type": "Organization", name: "YourSiteName" },
+      articleBody: content.content,
+    }),
+    [content, metaDescription]
+  );
 
   // Extract H2 headings for a Table of Contents
   const headings = useMemo(() => {
     const regex = /^##\s+(.+)$/gm;
     const result: string[] = [];
-    let match;
+    let match: RegExpExecArray | null;
     while ((match = regex.exec(content.content)) !== null) {
       result.push(match[1]);
     }
@@ -71,7 +77,7 @@ const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) =
   // Custom heading renderer to inject IDs and classes
   const headingClasses: Record<number, string> = {
     2: 'text-2xl font-semibold mt-8 mb-4 text-gray-800',
-    3: 'text-xl font-medium mt-6 mb-3 text-gray-800'
+    3: 'text-xl font-medium mt-6 mb-3 text-gray-800',
   };
 
   const HeadingRenderer = ({ level, children }: any) => {
