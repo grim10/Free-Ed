@@ -1,11 +1,14 @@
-// 🔧 Ensure you have installed: react-markdown, remark-gfm, react-helmet, slugify
-// npm install react-markdown remark-gfm react-helmet slugify
+// src/components/ContentSection.tsx
+
 import React, { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Helmet } from 'react-helmet';
-import slugify from 'slugify';
-import { Content } from '../types';
+import rehypeRaw from 'rehype-raw';
+
+export interface Content {
+  title: string;
+  content: string; // Markdown string returned by your AI service
+}
 
 interface ContentSectionProps {
   content: Content | null;
@@ -13,123 +16,121 @@ interface ContentSectionProps {
 }
 
 const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) => {
-  // Loading state
+  // 1️⃣ Loading skeleton
   if (isLoading) {
     return (
       <div className="bg-white rounded-lg p-6 shadow-sm animate-pulse">
-        <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
-        <div className="space-y-2">
-          <div className="h-4 bg-gray-200 rounded w-full"></div>
-          <div className="h-4 bg-gray-200 rounded w-full"></div>
-          <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+        <div className="h-8 bg-gray-200 rounded w-1/2 mb-6" />
+        <div className="space-y-4">
+          <div className="h-4 bg-gray-200 rounded w-full" />
+          <div className="h-4 bg-gray-200 rounded w-full" />
+          <div className="h-4 bg-gray-200 rounded w-5/6" />
+          <div className="h-40 bg-gray-200 rounded w-full" />
         </div>
       </div>
     );
   }
 
-  // No content state
+  // 2️⃣ Empty state
   if (!content) {
     return (
-      <div className="bg-white rounded-lg p-6 shadow-sm flex flex-col items-center justify-center h-80">
-        <span className="text-6xl mb-4">🔍</span>
-        <h3 className="text-xl font-semibold text-gray-700 mb-2">No content selected</h3>
-        <p className="text-gray-500 text-center max-w-sm">
-          Choose a topic to generate a dynamic, SEO-optimized article—complete with explanations, formulas, examples, and practice problems.
+      <div className="bg-white rounded-lg p-6 shadow-sm flex flex-col items-center justify-center h-96">
+        <div className="text-6xl mb-4">🔍</div>
+        <h3 className="text-xl font-medium text-gray-700 mb-2">No content selected</h3>
+        <p className="text-gray-500 text-center max-w-md">
+          Select a topic and prompt type to generate personalized educational content.
         </p>
       </div>
     );
   }
 
-  // Meta description: first paragraph or first 160 chars
-  const metaDescription = useMemo(() => {
-    const firstParaMatch = content.content.trim().match(/^(?:[^#\n].+?)(?=\n)/);
-    const raw = firstParaMatch ? firstParaMatch[0] : content.content.slice(0, 160);
-    // Remove markdown characters
-    const cleanupRegex = /[#_*>\`~\-!\[\]]/g;
-    return raw.replace(cleanupRegex, '').trim();
+  // 3️⃣ Pull out the first 3 sentences for Quick Reference
+  const keyPoints = useMemo(() => {
+    const sentences = content.content
+      .trim()
+      .match(/[^.!?]+[.!?]+/g)
+      ?.map(s => s.trim()) ?? [];
+    return sentences.slice(0, 3);
   }, [content]);
 
-  // JSON-LD structured data for Article schema
-  const jsonLd = useMemo(() => ({
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: content.title,
-    description: metaDescription,
-    datePublished: new Date().toISOString(),
-    author: { "@type": "Organization", name: "YourSiteName" },
-    articleBody: content.content
-  }), [content, metaDescription]);
-
-  // Extract H2 headings for a Table of Contents
-  const headings = useMemo(() => {
-    const regex = /^##\s+(.+)$/gm;
-    const result: string[] = [];
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(content.content)) !== null) {
-      result.push(match[1]);
-    }
-    return result;
-  }, [content]);
-
-  // Custom heading renderer to inject IDs and classes
-  const headingClasses: Record<number, string> = {
-    2: 'text-2xl font-semibold mt-8 mb-4 text-gray-800',
-    3: 'text-xl font-medium mt-6 mb-3 text-gray-800'
-  };
-
-  const HeadingRenderer = ({ level, children }: any) => {
-    const text = String(children[0]);
-    const id = slugify(text, { lower: true, strict: true });
-    return React.createElement(
-      `h${level}`,
-      { id, className: headingClasses[level] || '' },
-      children
-    );
-  };
-
+  // 4️⃣ Render the Markdown article
   return (
-    <>
-      {/* SEO Meta Tags */}
-      <Helmet>
-        <title>{content.title} | YourSiteName</title>
-        <meta name="description" content={metaDescription} />
-        <meta property="og:title" content={content.title} />
-        <meta property="og:description" content={metaDescription} />
-        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
-      </Helmet>
+    <article className="bg-white rounded-lg p-6 shadow-sm prose prose-lg max-w-none">
+      {/* Article Title */}
+      <h1 className="text-3xl font-bold mb-4">{content.title}</h1>
 
-      <article className="bg-white rounded-lg p-8 shadow-md prose prose-lg max-w-none">
-        {/* Article Title */}
-        <h1 className="text-3xl font-bold text-gray-800 mb-6">{content.title}</h1>
+      {/* AI-generated Markdown body */}
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw]}
+        components={{
+          h2: ({ node, ...props }) => (
+            <h2 className="mt-8 mb-4 text-2xl font-semibold" {...props} />
+          ),
+          h3: ({ node, ...props }) => (
+            <h3 className="mt-6 mb-3 text-xl font-medium" {...props} />
+          ),
+          p: ({ node, ...props }) => (
+            <p className="mb-4 leading-relaxed" {...props} />
+          ),
+          ul: ({ node, ...props }) => (
+            <ul className="list-disc list-inside mb-4 space-y-1" {...props} />
+          ),
+          ol: ({ node, ...props }) => (
+            <ol className="list-decimal list-inside mb-4 space-y-1" {...props} />
+          ),
+          table: ({ node, ...props }) => (
+            <table className="w-full table-auto border border-gray-200 mb-6" {...props} />
+          ),
+          thead: ({ node, ...props }) => (
+            <thead className="bg-gray-100" {...props} />
+          ),
+          th: ({ node, ...props }) => (
+            <th className="px-4 py-2 text-left font-medium" {...props} />
+          ),
+          td: ({ node, ...props }) => (
+            <td className="px-4 py-2 border-t" {...props} />
+          ),
+          code: ({ node, inline, className, children, ...props }) =>
+            inline ? (
+              <code className="bg-gray-100 px-1 rounded" {...props}>
+                {children}
+              </code>
+            ) : (
+              <pre className="bg-gray-100 p-4 rounded overflow-x-auto" {...props}>
+                {children}
+              </pre>
+            ),
+        }}
+      >
+        {content.content}
+      </ReactMarkdown>
 
-        {/* Optional Table of Contents */}
-        {headings.length > 0 && (
-          <nav className="mb-6 bg-gray-50 p-4 rounded">
-            <h2 className="text-lg font-semibold mb-2">In This Article</h2>
-            <ul className="list-disc list-inside space-y-1">
-              {headings.map((text) => {
-                const id = slugify(text, { lower: true, strict: true });
-                return (
-                  <li key={id}>
-                    <a href={`#${id}`} className="text-blue-600 hover:underline">
-                      {text}
-                    </a>
-                  </li>
-                );
-              })}
+      {/* 5️⃣ Quick Reference */}
+      <aside className="mt-8 bg-blue-50 rounded-lg p-4 border border-blue-100">
+        <h4 className="text-blue-800 font-medium mb-3 flex items-center gap-2">
+          📌 Quick Reference
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <strong>Key Points:</strong>
+            <ul className="list-disc list-inside mt-2 space-y-1">
+              {keyPoints.map((pt, idx) => (
+                <li key={idx} className="text-gray-700">
+                  {pt}
+                </li>
+              ))}
             </ul>
-          </nav>
-        )}
-
-        {/* Render AI-generated Markdown */}
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={{ h2: HeadingRenderer, h3: HeadingRenderer }}
-        >
-          {content.content}
-        </ReactMarkdown>
-      </article>
-    </>
+          </div>
+          <div>
+            <strong>Remember:</strong>
+            <ul className="list-disc list-inside mt-2 space-y-1 text-green-700">
+              <li>Focus on understanding core principles before tackling IIT-JEE problems.</li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+    </article>
   );
 };
 
