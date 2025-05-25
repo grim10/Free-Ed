@@ -63,16 +63,16 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
     );
   }
 
-  // 1) Convert "1) Overview:" etc. into real "## Overview" headings
+  // 1) Convert numbered lines into real Markdown headings
   const normalized = useMemo(() => {
     return content.content
-      .replace(/^\s*\d+\)\s*([^:\n]+):/gm, '## $1')
-      .replace(/^\s*\d+\.\s*([^:\n]+):/gm, '## $1')
-      .replace(/^Core concepts:/gim, '## Core Concepts:')
+      .replace(/^\s*\d+\)\s*([^:\n]+):/gm, '## $1')    // "1) Overview:" → "## Overview"
+      .replace(/^\s*\d+\.\s*([^:\n]+):/gm, '## $1')    // "3. Core concepts:" → "## Core concepts"
+      .replace(/^Core concepts:/gim, '## Core Concepts:') // catch unnumbered
       .trim();
   }, [content.content]);
 
-  // 2) Split on "## " into discrete sections
+  // 2) Split into sections
   const sections = useMemo(() => {
     return normalized
       .split(/^##\s+/gm)
@@ -91,7 +91,7 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
 
   return (
     <div className="flex flex-col lg:flex-row gap-8">
-      {/* ── Sticky TOC on large screens ── */}
+      {/* ── Sticky TOC on desktop ── */}
       <nav className="hidden lg:block sticky top-24 self-start w-56 prose">
         <h4 className="font-semibold mb-2">On this page</h4>
         <ul className="space-y-1">
@@ -105,7 +105,7 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
         </ul>
       </nav>
 
-      {/* ── Main article ── */}
+      {/* ── Main content ── */}
       <article className="prose prose-lg max-w-none flex-1 space-y-10">
         <h1 className="text-4xl font-bold">{content.title}</h1>
 
@@ -113,12 +113,10 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
           <section
             key={sec.slug}
             id={sec.slug}
-            className={`border-l-4 p-6 rounded-lg ${
-              COLORS[sec.title] ?? 'border-gray-300 bg-gray-50'
-            }`}
+            className={`border-l-4 p-6 rounded-lg ${COLORS[sec.title] || 'border-gray-300 bg-gray-50'}`}
           >
             <h2 className="flex items-center gap-2 text-2xl font-semibold mb-4">
-              <span>{ICONS[sec.title] ?? '✨'}</span>
+              <span>{ICONS[sec.title] || '✨'}</span>
               {sec.title}
             </h2>
 
@@ -126,8 +124,8 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeRaw, rehypeKatex]}
               components={{
-                p: ({ node, ...props }) => <p className="mb-4 leading-relaxed" {...props} />,
-                div: ({ node, className, children, ...props }) =>
+                p:    ({ node, ...props }) => <p className="mb-4 leading-relaxed" {...props} />,
+                div:  ({ node, className, children, ...props }) =>
                   className?.includes('katex-display') ? (
                     <div className="my-6 p-4 bg-white rounded-lg shadow-sm text-center" {...props}>
                       {children}
@@ -135,12 +133,12 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
                   ) : (
                     <div {...props}>{children}</div>
                   ),
-                ul: ({ node, ...props }) => <ul className="list-disc list-inside mb-4 space-y-1" {...props} />,
-                ol: ({ node, ...props }) => <ol className="list-decimal list-inside mb-4 space-y-1" {...props} />,
-                table: ({ node, ...props }) => <table className="w-full table-auto border border-gray-200 mb-6" {...props} />,
-                thead: ({ node, ...props }) => <thead className="bg-gray-100" {...props} />,
-                th: ({ node, ...props }) => <th className="px-4 py-2 text-left font-medium" {...props} />,
-                td: ({ node, ...props }) => <td className="px-4 py-2 border-t" {...props} />,
+                ul:   ({ node, ...props }) => <ul className="list-disc list-inside mb-4 space-y-1" {...props} />,
+                ol:   ({ node, ...props }) => <ol className="list-decimal list-inside mb-4 space-y-1" {...props} />,
+                table:({ node, ...props }) => <table className="w-full table-auto border border-gray-200 mb-6" {...props} />,
+                thead:({ node, ...props }) => <thead className="bg-gray-100" {...props} />,
+                th:   ({ node, ...props }) => <th className="px-4 py-2 text-left font-medium" {...props} />,
+                td:   ({ node, ...props }) => <td className="px-4 py-2 border-t" {...props} />,
                 code: ({ inline, children, ...props }) =>
                   inline ? (
                     <code className="bg-gray-100 px-1 rounded" {...props}>
