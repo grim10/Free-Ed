@@ -240,4 +240,3 @@ export class ContentService {
 
 // Export a singleton instance of the ContentService
 export const contentService = new ContentService();
-export async function generateContent(topic: string, type: string): Promise<string> {
