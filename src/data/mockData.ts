@@ -1,145 +1,281 @@
-import { Subject, Topic, Content, FollowUpQuestion, Chapter } from '../types';
+import { Subject, Topic, Content, FollowUpQuestion } from '../types';
 
-// Mock subjects with chapters
+// Mock subjects
 export const subjects: Subject[] = [
   {
     id: 'physics',
     name: 'Physics',
     description: 'Study of matter, energy, and the interaction between them',
     imageUrl: 'https://images.pexels.com/photos/714699/pexels-photo-714699.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
-    chapters: [
-      {
-        id: 'mechanics',
-        title: 'Mechanics',
-        description: 'Study of motion, forces, and energy',
-        icon: '🎯',
-        topics: ['kinematics', 'dynamics', 'work-energy', 'momentum', 'rotational-motion'],
-        duration: 20,
-        subjectId: 'physics'
-      },
-      {
-        id: 'electromagnetism',
-        title: 'Electromagnetism',
-        description: 'Study of electrical and magnetic phenomena',
-        icon: '⚡',
-        topics: [
-          'electric-fields',
-          'magnetic-fields',
-          'electromagnetic-induction',
-          'ac-circuits',
-          'maxwell-equations',
-          'electromagnetic-waves',
-          'capacitance',
-          'inductance'
-        ],
-        duration: 25,
-        subjectId: 'physics'
-      },
-      {
-        id: 'thermodynamics',
-        title: 'Thermodynamics',
-        description: 'Study of heat, energy, and thermal processes',
-        icon: '🌡️',
-        topics: ['temperature', 'heat', 'laws-thermodynamics', 'entropy', 'thermal-properties'],
-        duration: 15,
-        subjectId: 'physics'
-      }
-    ]
+    rootTopics: ['physics-mechanics', 'physics-electromagnetism', 'physics-thermodynamics', 'physics-optics', 'physics-modern']
+  },
+  {
+    id: 'mathematics',
+    name: 'Mathematics',
+    description: 'Study of numbers, quantities, and shapes',
+    imageUrl: 'https://images.pexels.com/photos/5673937/pexels-photo-5673937.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    rootTopics: ['math-algebra', 'math-calculus', 'math-geometry', 'math-statistics', 'math-discrete']
+  },
+  {
+    id: 'chemistry',
+    name: 'Chemistry',
+    description: 'Study of matter, its properties, and reactions',
+    imageUrl: 'https://images.pexels.com/photos/2280571/pexels-photo-2280571.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    rootTopics: ['chem-organic', 'chem-inorganic', 'chem-physical', 'chem-analytical', 'chem-biochemistry']
+  },
+  {
+    id: 'biology',
+    name: 'Biology',
+    description: 'Study of living organisms and their interactions',
+    imageUrl: 'https://images.pexels.com/photos/2280549/pexels-photo-2280549.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    rootTopics: ['bio-cellular', 'bio-molecular', 'bio-genetics', 'bio-ecology', 'bio-evolution']
+  },
+  {
+    id: 'english',
+    name: 'English',
+    description: 'Study of language, literature, and composition',
+    imageUrl: 'https://images.pexels.com/photos/256417/pexels-photo-256417.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    rootTopics: ['eng-grammar', 'eng-literature', 'eng-composition', 'eng-rhetoric', 'eng-linguistics']
+  },
+  {
+    id: 'computer-science',
+    name: 'Computer Science',
+    description: 'Study of computation, automation, and information',
+    imageUrl: 'https://images.pexels.com/photos/2061168/pexels-photo-2061168.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+    rootTopics: ['cs-programming', 'cs-data-structures', 'cs-algorithms', 'cs-architecture', 'cs-ai']
   }
 ];
 
-// Extended topics for Electromagnetism
+// Mock topics for Physics
 export const topics: Topic[] = [
+  // Physics - Electromagnetism topics
   {
-    id: 'electric-fields',
-    title: 'Electric Fields and Forces',
-    description: 'Study of electric fields, Coulomb\'s law, and electric forces',
-    keywords: ['Coulomb\'s law', 'field lines', 'potential difference', 'Gauss\'s law'],
+    id: 'physics-electromagnetism',
+    title: 'Electromagnetism',
+    description: 'Study of electromagnetic force, a type of physical interaction between electrically charged particles',
+    keywords: ['electric field', 'magnetic field', 'electromagnetic induction'],
     difficulty: 'Intermediate',
-    chapterId: 'electromagnetism',
-    relatedTopics: ['magnetic-fields', 'capacitance']
+    relatedTopics: ['physics-modern', 'physics-mechanics']
   },
   {
-    id: 'magnetic-fields',
-    title: 'Magnetic Fields and Forces',
-    description: 'Understanding magnetic fields, forces, and their interactions',
-    keywords: ['magnetic flux', 'Biot-Savart law', 'Ampere\'s law', 'magnetic materials'],
+    id: 'moving-charges-magnetism',
+    title: 'Moving Charges and Magnetism',
+    description: 'Study of the relationship between moving electric charges and magnetic fields',
+    keywords: ['Lorentz force', 'Ampere\'s law', 'Solenoid', 'Magnetic field'],
+    difficulty: 'Advanced',
+    parentId: 'physics-electromagnetism',
+    relatedTopics: ['electromagnetic-induction', 'electrostatics']
+  },
+  {
+    id: 'lorentz-force',
+    title: 'Lorentz Force',
+    description: 'The force exerted on a charged particle moving through electric and magnetic fields',
+    keywords: ['charged particle', 'magnetic field', 'electric field', 'cross product'],
+    difficulty: 'Advanced',
+    parentId: 'moving-charges-magnetism',
+    relatedTopics: ['right-hand-rule', 'electromagnetic-induction']
+  },
+  {
+    id: 'amperes-law',
+    title: 'Ampere\'s Law',
+    description: 'Relates the magnetic field to the electric current that produces it',
+    keywords: ['current', 'magnetic field', 'circular integral', 'permeability'],
+    difficulty: 'Advanced',
+    parentId: 'moving-charges-magnetism',
+    relatedTopics: ['biot-savart-law', 'magnetic-field']
+  },
+  {
+    id: 'solenoid-magnetic-field',
+    title: 'Solenoid Magnetic Field',
+    description: 'The magnetic field generated by a current-carrying solenoid',
+    keywords: ['solenoid', 'magnetic field', 'current', 'inductance'],
     difficulty: 'Intermediate',
-    chapterId: 'electromagnetism',
-    relatedTopics: ['electric-fields', 'electromagnetic-induction']
+    parentId: 'moving-charges-magnetism',
+    relatedTopics: ['electromagnetic-induction', 'magnetic-field']
   },
   {
     id: 'electromagnetic-induction',
     title: 'Electromagnetic Induction',
-    description: 'Study of induced EMF and Faraday\'s law',
-    keywords: ['Faraday\'s law', 'Lenz\'s law', 'induced EMF', 'mutual inductance'],
-    difficulty: 'Advanced',
-    chapterId: 'electromagnetism',
-    relatedTopics: ['magnetic-fields', 'ac-circuits']
-  },
-  {
-    id: 'ac-circuits',
-    title: 'AC Circuits',
-    description: 'Analysis of alternating current circuits',
-    keywords: ['impedance', 'resonance', 'power factor', 'RLC circuits'],
-    difficulty: 'Advanced',
-    chapterId: 'electromagnetism',
-    relatedTopics: ['electromagnetic-induction', 'capacitance']
-  },
-  {
-    id: 'maxwell-equations',
-    title: 'Maxwell\'s Equations',
-    description: 'Fundamental equations of electromagnetism',
-    keywords: ['Gauss\'s law', 'Faraday\'s law', 'Ampere\'s law', 'displacement current'],
-    difficulty: 'Advanced',
-    chapterId: 'electromagnetism',
-    relatedTopics: ['electromagnetic-waves', 'electric-fields']
-  },
-  {
-    id: 'electromagnetic-waves',
-    title: 'Electromagnetic Waves',
-    description: 'Properties and behavior of EM waves',
-    keywords: ['wave equation', 'polarization', 'radiation', 'energy transport'],
-    difficulty: 'Advanced',
-    chapterId: 'electromagnetism',
-    relatedTopics: ['maxwell-equations', 'optics']
-  },
-  {
-    id: 'capacitance',
-    title: 'Capacitance and Capacitors',
-    description: 'Study of charge storage and capacitive circuits',
-    keywords: ['parallel plate', 'dielectrics', 'energy storage', 'RC circuits'],
+    description: 'The production of voltage across an electrical conductor in a changing magnetic field',
+    keywords: ['Faraday\'s law', 'Lenz\'s law', 'induced EMF', 'flux'],
     difficulty: 'Intermediate',
-    chapterId: 'electromagnetism',
-    relatedTopics: ['electric-fields', 'ac-circuits']
+    parentId: 'physics-electromagnetism',
+    relatedTopics: ['moving-charges-magnetism', 'alternating-current']
+  },
+  
+  // Computer Science - Data Structures
+  {
+    id: 'cs-data-structures',
+    title: 'Data Structures',
+    description: 'Different ways of organizing data to facilitate efficient operations',
+    keywords: ['arrays', 'linked lists', 'trees', 'graphs', 'hash tables'],
+    difficulty: 'Intermediate',
+    relatedTopics: ['cs-algorithms', 'cs-programming']
   },
   {
-    id: 'inductance',
-    title: 'Inductance and Inductors',
-    description: 'Study of magnetic energy storage and inductive circuits',
-    keywords: ['self-inductance', 'mutual inductance', 'RL circuits', 'magnetic energy'],
+    id: 'arrays',
+    title: 'Arrays',
+    description: 'A collection of elements stored at contiguous memory locations',
+    keywords: ['indexing', 'traversal', 'insertion', 'deletion'],
+    difficulty: 'Beginner',
+    parentId: 'cs-data-structures',
+    relatedTopics: ['linked-lists', 'matrices']
+  },
+  {
+    id: 'linked-lists',
+    title: 'Linked Lists',
+    description: 'A linear collection of data elements where each element points to the next',
+    keywords: ['node', 'pointer', 'singly linked', 'doubly linked'],
     difficulty: 'Intermediate',
-    chapterId: 'electromagnetism',
-    relatedTopics: ['magnetic-fields', 'ac-circuits']
+    parentId: 'cs-data-structures',
+    relatedTopics: ['arrays', 'stacks', 'queues']
   }
 ];
 
-// Helper functions
-export const getChaptersBySubject = (subjectId: string): Chapter[] => {
+// Mock content
+export const mockContent: Content = {
+  id: 'lorentz-force-explanation',
+  topicId: 'lorentz-force',
+  type: 'explanation',
+  title: 'Understanding the Lorentz Force',
+  content: `The Lorentz force is what happens when a charged particle (like an electron) moves through both electric and magnetic fields.
+
+Think of it this way: Imagine you're swimming in a river (that's the magnetic field). As you swim, the river pushes you sideways (that's part of the Lorentz force). Now imagine it's also raining (that's the electric field), and the raindrops are pushing you in some direction too.
+
+The Lorentz force combines these two effects: the push from the "river" (magnetic field) and the push from the "rain" (electric field). 
+
+Mathematically, we write it as:
+F = q(E + v × B)
+
+Where:
+- F is the force vector
+- q is the electric charge
+- E is the electric field vector
+- v is the velocity vector of the charged particle
+- B is the magnetic field vector
+- × represents the cross product
+
+The magnetic part of the force (q v × B) is always perpendicular to both the velocity of the particle and the magnetic field. This is what causes charged particles to move in circular paths inside magnetic fields.
+
+Real-world applications include:
+- Particle accelerators
+- Mass spectrometers
+- Electric motors
+- Loudspeakers
+- Magnetrons in microwave ovens`
+};
+
+// Mock follow-up questions
+export const mockFollowUpQuestions: FollowUpQuestion[] = [
+  {
+    id: 'follow-1',
+    topicId: 'lorentz-force',
+    question: 'What is the right-hand rule in relation to the Lorentz force?',
+    contentType: 'explanation'
+  },
+  {
+    id: 'follow-2',
+    topicId: 'lorentz-force',
+    question: 'How is the Lorentz force used in electric motors?',
+    contentType: 'explanation'
+  },
+  {
+    id: 'follow-3',
+    topicId: 'lorentz-force',
+    question: 'Can you solve a JEE-level numerical problem on Lorentz force?',
+    contentType: 'example'
+  },
+  {
+    id: 'follow-4',
+    topicId: 'lorentz-force',
+    question: 'What happens when a charged particle enters a magnetic field at different angles?',
+    contentType: 'explanation'
+  },
+  {
+    id: 'follow-5',
+    topicId: 'lorentz-force',
+    question: 'How does the Lorentz force relate to electromagnetic induction?',
+    contentType: 'explanation'
+  }
+];
+
+// Enhanced prompt types with more engaging options
+export const promptTypes = [
+  { 
+    id: 'explain-simply', 
+    label: 'Break it down for me', 
+    icon: '🧩',
+    description: 'Simple, step-by-step explanation with real-life analogies'
+  },
+  { 
+    id: 'visual-guide', 
+    label: 'Show me visually', 
+    icon: '🎨',
+    description: 'Learn through diagrams, animations, and visual examples'
+  },
+  { 
+    id: 'interactive-practice', 
+    label: 'Let me try it', 
+    icon: '🎯',
+    description: 'Interactive problems with step-by-step solutions'
+  },
+  { 
+    id: 'real-applications', 
+    label: 'Where is this used?', 
+    icon: '🌟',
+    description: 'Real-world applications and case studies'
+  },
+  { 
+    id: 'deep-dive', 
+    label: 'Go deeper', 
+    icon: '🔬',
+    description: 'Advanced concepts and theoretical foundations'
+  },
+  { 
+    id: 'exam-mastery', 
+    label: 'Master for exams', 
+    icon: '📚',
+    description: 'Exam-specific strategies and practice questions'
+  },
+  { 
+    id: 'concept-map', 
+    label: 'Connect concepts', 
+    icon: '🕸️',
+    description: 'Visual map showing relationships with other topics'
+  },
+  { 
+    id: 'common-mistakes', 
+    label: 'Avoid mistakes', 
+    icon: '⚠️',
+    description: 'Common misconceptions and how to avoid them'
+  }
+];
+
+// Get all topics for a subject
+export const getTopicsBySubject = (subjectId: string): Topic[] => {
   const subject = subjects.find(s => s.id === subjectId);
-  return subject?.chapters || [];
+  if (!subject) return [];
+  
+  return topics.filter(topic => 
+    subject.rootTopics.includes(topic.id) || 
+    (topic.parentId && subject.rootTopics.some(rootId => topic.parentId?.startsWith(rootId)))
+  );
 };
 
-export const getTopicsByChapter = (chapterId: string): Topic[] => {
-  return topics.filter(topic => topic.chapterId === chapterId);
+// Get subtopics for a topic
+export const getSubtopics = (topicId: string): Topic[] => {
+  return topics.filter(topic => topic.parentId === topicId);
 };
 
+// Get a topic by ID
 export const getTopicById = (topicId: string): Topic | undefined => {
   return topics.find(topic => topic.id === topicId);
 };
 
+// Get related topics
 export const getRelatedTopics = (topicId: string): Topic[] => {
   const topic = getTopicById(topicId);
   if (!topic || !topic.relatedTopics) return [];
+  
   return topics.filter(t => topic.relatedTopics?.includes(t.id));
 };
