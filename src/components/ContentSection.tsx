@@ -1,77 +1,101 @@
-// src/components/ContentSection.tsx
-import React, { useMemo } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm   from 'remark-gfm'
-import remarkMath  from 'remark-math'
-import rehypeKatex from 'rehype-katex'
-import rehypeRaw   from 'rehype-raw'
-import slugify     from 'slugify'
+import React, { useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm   from 'remark-gfm';
+import remarkMath  from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import rehypeRaw   from 'rehype-raw';
+import slugify     from 'slugify';
 
 export interface Content {
-  title:   string
-  content: string  // should include real markdown headings like "## Overview", "## Formula", etc.
+  title:   string;
+  content: string;   // AI returns a Markdown string
 }
 
-interface Props {
-  content:   Content | null
-  isLoading: boolean
+interface ContentSectionProps {
+  content:   Content | null;
+  isLoading: boolean;
 }
 
 const COLORS: Record<string,string> = {
-  Overview:            'border-blue-500 bg-blue-50',
-  Analogy:             'border-yellow-500 bg-yellow-50',
-  'Core Concepts':     'border-green-500 bg-green-50',
-  'Formula & Derivation': 'border-purple-500 bg-purple-50',
-  Examples:            'border-indigo-500 bg-indigo-50',
-  Takeaways:           'border-teal-500 bg-teal-50',
-}
+  Overview:             'border-blue-500 bg-blue-50',
+  Analogy:              'border-yellow-500 bg-yellow-50',
+  'Core Concepts':      'border-green-500 bg-green-50',
+  'Formula & Derivation':'border-purple-500 bg-purple-50',
+  Examples:             'border-indigo-500 bg-indigo-50',
+  Takeaways:            'border-teal-500 bg-teal-50',
+};
 
 const ICONS: Record<string,string> = {
-  Overview:            '🔍',
-  Analogy:             '🪄',
-  'Core Concepts':     '💡',
-  'Formula & Derivation': '📐',
-  Examples:            '📝',
-  Takeaways:           '✅',
-}
+  Overview:             '🔍',
+  Analogy:              '🪄',
+  'Core Concepts':      '💡',
+  'Formula & Derivation':'📐',
+  Examples:             '📝',
+  Takeaways:            '✅',
+};
 
-const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
+const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) => {
   if (isLoading) {
     return (
       <div className="bg-white rounded-lg p-6 shadow-sm animate-pulse">
         {/* loading skeleton */}
+        <div className="h-8 bg-gray-200 rounded w-1/3 mb-6" />
+        <div className="space-y-4">
+          <div className="h-4 bg-gray-200 rounded w-full" />
+          <div className="h-4 bg-gray-200 rounded w-full" />
+          <div className="h-4 bg-gray-200 rounded w-3/4" />
+          <div className="h-40 bg-gray-200 rounded w-full" />
+        </div>
       </div>
-    )
-  }
-  if (!content) {
-    return (
-      <div className="bg-white rounded-lg p-6 shadow-sm flex flex-col items-center justify-center h-64">
-        <div className="text-6xl mb-4">🔍</div>
-        <p className="text-gray-500">Select a topic to generate content.</p>
-      </div>
-    )
+    );
   }
 
-  // Split on real markdown headings "## Title"
-  const sections = useMemo(() => {
+  if (!content) {
+    return (
+      <div className="bg-white rounded-lg p-6 shadow-sm flex flex-col items-center justify-center h-96">
+        <div className="text-6xl mb-4">🔍</div>
+        <h3 className="text-xl font-medium text-gray-700 mb-2">
+          No content selected
+        </h3>
+        <p className="text-gray-500 text-center max-w-md">
+          Select a topic and prompt type to generate personalized educational content.
+        </p>
+      </div>
+    );
+  }
+
+  // 1) Normalize AI’s numbered sections into real markdown headings
+  const normalized = useMemo(() => {
     return content.content
-      .split(/^##\s+/gm)                 // split at "## "
+      // "1) Overview:" → "## Overview"
+      .replace(/^\s*\d+\)\s*([^:\n]+):/gm, '## $1')
+      // "3. Core concepts:" → "## Core concepts"
+      .replace(/^\s*\d+\.\s*([^:\n]+):/gm, '## $1')
+      // In case AI omits numbering on “Core concepts:”
+      .replace(/^Core concepts:/gim, '## Core Concepts:')
+      .trim();
+  }, [content.content]);
+
+  // 2) Split into sections by "## Heading"
+  const sections = useMemo(() => {
+    return normalized
+      .split(/^##\s+/gm)
       .map(chunk => chunk.trim())
       .filter(chunk => chunk.length > 0)
       .map(chunk => {
-        const [rawTitle, ...rest] = chunk.split('\n')
-        const title = rawTitle.replace(/:$/, '').trim()
+        const [rawTitle, ...rest] = chunk.split('\n');
+        const title = rawTitle.replace(/:$/, '').trim();
         return {
           title,
           slug:  slugify(title, { lower: true }),
           body:  rest.join('\n').trim(),
-        }
-      })
-  }, [content.content])
+        };
+      });
+  }, [normalized]);
 
   return (
     <div className="flex flex-col lg:flex-row gap-8">
-      {/* Sticky TOC */}
+      {/* ── Sticky TOC (desktop) ── */}
       <nav className="hidden lg:block sticky top-24 self-start w-56 prose">
         <h4 className="font-semibold mb-2">On this page</h4>
         <ul className="space-y-1">
@@ -88,7 +112,7 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
         </ul>
       </nav>
 
-      {/* Main content */}
+      {/* ── Main article ── */}
       <article className="prose prose-lg max-w-none flex-1 space-y-10">
         <h1 className="text-4xl font-bold">{content.title}</h1>
 
@@ -97,12 +121,12 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
             id={sec.slug}
             key={sec.slug}
             className={`
-              border-l-4 p-6 rounded-lg 
+              border-l-4 p-6 rounded-lg
               ${COLORS[sec.title] ?? 'border-gray-300 bg-gray-50'}
             `}
           >
             <h2 className="flex items-center gap-2 text-2xl font-semibold mb-4">
-              <span>{ICONS[sec.title] || '✨'}</span>
+              <span>{ICONS[sec.title] ?? '✨'}</span>
               {sec.title}
             </h2>
 
@@ -114,26 +138,23 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
                 p: ({ node, ...props }) => (
                   <p className="mb-4 leading-relaxed" {...props} />
                 ),
-                // block math display
+                // block-level math
                 div: ({ node, className, children, ...props }) => {
-                  // react-markdown + rehype-katex wraps $$...$$ output in a div.katex-display
                   if (className?.includes('katex-display')) {
                     return (
                       <div className="my-6 p-4 bg-white rounded-lg shadow-sm text-center" {...props}>
                         {children}
                       </div>
-                    )
+                    );
                   }
-                  return <div {...props}>{children}</div>
+                  return <div {...props}>{children}</div>;
                 },
-                // lists
                 ul: ({ node, ...props }) => (
                   <ul className="list-disc list-inside mb-4 space-y-1" {...props} />
                 ),
                 ol: ({ node, ...props }) => (
                   <ol className="list-decimal list-inside mb-4 space-y-1" {...props} />
                 ),
-                // tables
                 table: ({ node, ...props }) => (
                   <table className="w-full table-auto border border-gray-200 mb-6" {...props} />
                 ),
@@ -146,7 +167,6 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
                 td: ({ node, ...props }) => (
                   <td className="px-4 py-2 border-t" {...props} />
                 ),
-                // code blocks / inline
                 code: ({ inline, children, ...props }) =>
                   inline ? (
                     <code className="bg-gray-100 px-1 rounded" {...props}>
@@ -165,7 +185,7 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
         ))}
       </article>
     </div>
-  )
-}
+  );
+};
 
-export default ContentSection
+export default ContentSection;
