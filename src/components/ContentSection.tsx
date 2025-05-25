@@ -63,16 +63,16 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
     );
   }
 
-  // 1) Convert numbered lines into real Markdown headings
+  // Convert AI's "1) Overview:" etc. into real Markdown headings
   const normalized = useMemo(() => {
     return content.content
-      .replace(/^\s*\d+\)\s*([^:\n]+):/gm, '## $1')    // "1) Overview:" → "## Overview"
-      .replace(/^\s*\d+\.\s*([^:\n]+):/gm, '## $1')    // "3. Core concepts:" → "## Core concepts"
-      .replace(/^Core concepts:/gim, '## Core Concepts:') // catch unnumbered
+      .replace(/^\s*\d+\)\s*([^:\n]+):/gm, '## $1')
+      .replace(/^\s*\d+\.\s*([^:\n]+):/gm, '## $1')
+      .replace(/^Core concepts:/gim, '## Core Concepts:')
       .trim();
   }, [content.content]);
 
-  // 2) Split into sections
+  // Split into discrete sections on "## "
   const sections = useMemo(() => {
     return normalized
       .split(/^##\s+/gm)
@@ -91,7 +91,7 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
 
   return (
     <div className="flex flex-col lg:flex-row gap-8">
-      {/* ── Sticky TOC on desktop ── */}
+      {/* Sticky TOC for desktop */}
       <nav className="hidden lg:block sticky top-24 self-start w-56 prose">
         <h4 className="font-semibold mb-2">On this page</h4>
         <ul className="space-y-1">
@@ -105,7 +105,7 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
         </ul>
       </nav>
 
-      {/* ── Main content ── */}
+      {/* Main content */}
       <article className="prose prose-lg max-w-none flex-1 space-y-10">
         <h1 className="text-4xl font-bold">{content.title}</h1>
 
@@ -113,10 +113,12 @@ const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
           <section
             key={sec.slug}
             id={sec.slug}
-            className={`border-l-4 p-6 rounded-lg ${COLORS[sec.title] || 'border-gray-300 bg-gray-50'}`}
+            className={`border-l-4 p-6 rounded-lg ${
+              COLORS[sec.title] ?? 'border-gray-300 bg-gray-50'
+            }`}
           >
             <h2 className="flex items-center gap-2 text-2xl font-semibold mb-4">
-              <span>{ICONS[sec.title] || '✨'}</span>
+              <span>{ICONS[sec.title] ?? '✨'}</span>
               {sec.title}
             </h2>
 
