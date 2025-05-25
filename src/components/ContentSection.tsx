@@ -2,21 +2,22 @@
 
 import React, { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
+import remarkGfm   from 'remark-gfm';
+import remarkMath  from 'remark-math';
+import rehypeRaw   from 'rehype-raw';
+import rehypeKatex from 'rehype-katex';
 
 export interface Content {
-  title: string;
-  content: string; // Markdown string returned by your AI service
+  title:   string;
+  content: string;  // your AI-generated markdown + LaTeX
 }
 
-interface ContentSectionProps {
-  content: Content | null;
+interface Props {
+  content:   Content | null;
   isLoading: boolean;
 }
 
-const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) => {
-  // 1️⃣ Loading skeleton
+const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
   if (isLoading) {
     return (
       <div className="bg-white rounded-lg p-6 shadow-sm animate-pulse">
@@ -31,12 +32,13 @@ const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) =
     );
   }
 
-  // 2️⃣ Empty state
   if (!content) {
     return (
       <div className="bg-white rounded-lg p-6 shadow-sm flex flex-col items-center justify-center h-96">
         <div className="text-6xl mb-4">🔍</div>
-        <h3 className="text-xl font-medium text-gray-700 mb-2">No content selected</h3>
+        <h3 className="text-xl font-medium text-gray-700 mb-2">
+          No content selected
+        </h3>
         <p className="text-gray-500 text-center max-w-md">
           Select a topic and prompt type to generate personalized educational content.
         </p>
@@ -44,25 +46,24 @@ const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) =
     );
   }
 
-  // 3️⃣ Pull out the first 3 sentences for Quick Reference
+  // Grab first 3 sentences for Quick Reference
   const keyPoints = useMemo(() => {
-    const sentences = content.content
+    const s = content.content
       .trim()
       .match(/[^.!?]+[.!?]+/g)
-      ?.map(s => s.trim()) ?? [];
-    return sentences.slice(0, 3);
+      ?.map(x => x.trim()) ?? [];
+    return s.slice(0, 3);
   }, [content]);
 
-  // 4️⃣ Render the Markdown article
   return (
     <article className="bg-white rounded-lg p-6 shadow-sm prose prose-lg max-w-none">
-      {/* Article Title */}
+      {/* Title */}
       <h1 className="text-3xl font-bold mb-4">{content.title}</h1>
 
-      {/* AI-generated Markdown body */}
+      {/* AI Markdown + LaTeX */}
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeRaw, rehypeKatex]}
         components={{
           h2: ({ node, ...props }) => (
             <h2 className="mt-8 mb-4 text-2xl font-semibold" {...props} />
@@ -106,7 +107,7 @@ const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) =
         {content.content}
       </ReactMarkdown>
 
-      {/* 5️⃣ Quick Reference */}
+      {/* Quick Reference */}
       <aside className="mt-8 bg-blue-50 rounded-lg p-4 border border-blue-100">
         <h4 className="text-blue-800 font-medium mb-3 flex items-center gap-2">
           📌 Quick Reference
@@ -115,8 +116,8 @@ const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) =
           <div>
             <strong>Key Points:</strong>
             <ul className="list-disc list-inside mt-2 space-y-1">
-              {keyPoints.map((pt, idx) => (
-                <li key={idx} className="text-gray-700">
+              {keyPoints.map((pt, i) => (
+                <li key={i} className="text-gray-700">
                   {pt}
                 </li>
               ))}
@@ -125,7 +126,10 @@ const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) =
           <div>
             <strong>Remember:</strong>
             <ul className="list-disc list-inside mt-2 space-y-1 text-green-700">
-              <li>Focus on understanding core principles before tackling IIT-JEE problems.</li>
+              <li>
+                Focus on understanding core principles before tackling IIT-JEE
+                problems.
+              </li>
             </ul>
           </div>
         </div>
