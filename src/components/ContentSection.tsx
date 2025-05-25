@@ -11,34 +11,33 @@ export interface Content {
   content: string;   // AI returns a Markdown string
 }
 
-interface ContentSectionProps {
+interface Props {
   content:   Content | null;
   isLoading: boolean;
 }
 
 const COLORS: Record<string,string> = {
-  Overview:             'border-blue-500 bg-blue-50',
-  Analogy:              'border-yellow-500 bg-yellow-50',
-  'Core Concepts':      'border-green-500 bg-green-50',
+  Overview:              'border-blue-500 bg-blue-50',
+  Analogy:               'border-yellow-500 bg-yellow-50',
+  'Core Concepts':       'border-green-500 bg-green-50',
   'Formula & Derivation':'border-purple-500 bg-purple-50',
-  Examples:             'border-indigo-500 bg-indigo-50',
-  Takeaways:            'border-teal-500 bg-teal-50',
+  Examples:              'border-indigo-500 bg-indigo-50',
+  Takeaways:             'border-teal-500 bg-teal-50',
 };
 
 const ICONS: Record<string,string> = {
-  Overview:             '🔍',
-  Analogy:              '🪄',
-  'Core Concepts':      '💡',
+  Overview:              '🔍',
+  Analogy:               '🪄',
+  'Core Concepts':       '💡',
   'Formula & Derivation':'📐',
-  Examples:             '📝',
-  Takeaways:            '✅',
+  Examples:              '📝',
+  Takeaways:             '✅',
 };
 
-const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) => {
+const ContentSection: React.FC<Props> = ({ content, isLoading }) => {
   if (isLoading) {
     return (
       <div className="bg-white rounded-lg p-6 shadow-sm animate-pulse">
-        {/* loading skeleton */}
         <div className="h-8 bg-gray-200 rounded w-1/3 mb-6" />
         <div className="space-y-4">
           <div className="h-4 bg-gray-200 rounded w-full" />
@@ -58,30 +57,27 @@ const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) =
           No content selected
         </h3>
         <p className="text-gray-500 text-center max-w-md">
-          Select a topic and prompt type to generate personalized educational content.
+          Select a topic to generate educational content.
         </p>
       </div>
     );
   }
 
-  // 1) Normalize AI’s numbered sections into real markdown headings
+  // 1) Convert "1) Overview:" etc. into real "## Overview" headings
   const normalized = useMemo(() => {
     return content.content
-      // "1) Overview:" → "## Overview"
       .replace(/^\s*\d+\)\s*([^:\n]+):/gm, '## $1')
-      // "3. Core concepts:" → "## Core concepts"
       .replace(/^\s*\d+\.\s*([^:\n]+):/gm, '## $1')
-      // In case AI omits numbering on “Core concepts:”
       .replace(/^Core concepts:/gim, '## Core Concepts:')
       .trim();
   }, [content.content]);
 
-  // 2) Split into sections by "## Heading"
+  // 2) Split on "## " into discrete sections
   const sections = useMemo(() => {
     return normalized
       .split(/^##\s+/gm)
       .map(chunk => chunk.trim())
-      .filter(chunk => chunk.length > 0)
+      .filter(Boolean)
       .map(chunk => {
         const [rawTitle, ...rest] = chunk.split('\n');
         const title = rawTitle.replace(/:$/, '').trim();
@@ -95,16 +91,13 @@ const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) =
 
   return (
     <div className="flex flex-col lg:flex-row gap-8">
-      {/* ── Sticky TOC (desktop) ── */}
+      {/* ── Sticky TOC on large screens ── */}
       <nav className="hidden lg:block sticky top-24 self-start w-56 prose">
         <h4 className="font-semibold mb-2">On this page</h4>
         <ul className="space-y-1">
           {sections.map(sec => (
             <li key={sec.slug}>
-              <a
-                href={`#${sec.slug}`}
-                className="text-blue-600 hover:underline"
-              >
+              <a href={`#${sec.slug}`} className="text-blue-600 hover:underline">
                 {sec.title}
               </a>
             </li>
@@ -118,12 +111,11 @@ const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) =
 
         {sections.map(sec => (
           <section
-            id={sec.slug}
             key={sec.slug}
-            className={`
-              border-l-4 p-6 rounded-lg
-              ${COLORS[sec.title] ?? 'border-gray-300 bg-gray-50'}
-            `}
+            id={sec.slug}
+            className={`border-l-4 p-6 rounded-lg ${
+              COLORS[sec.title] ?? 'border-gray-300 bg-gray-50'
+            }`}
           >
             <h2 className="flex items-center gap-2 text-2xl font-semibold mb-4">
               <span>{ICONS[sec.title] ?? '✨'}</span>
@@ -134,39 +126,21 @@ const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) =
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeRaw, rehypeKatex]}
               components={{
-                // paragraphs
-                p: ({ node, ...props }) => (
-                  <p className="mb-4 leading-relaxed" {...props} />
-                ),
-                // block-level math
-                div: ({ node, className, children, ...props }) => {
-                  if (className?.includes('katex-display')) {
-                    return (
-                      <div className="my-6 p-4 bg-white rounded-lg shadow-sm text-center" {...props}>
-                        {children}
-                      </div>
-                    );
-                  }
-                  return <div {...props}>{children}</div>;
-                },
-                ul: ({ node, ...props }) => (
-                  <ul className="list-disc list-inside mb-4 space-y-1" {...props} />
-                ),
-                ol: ({ node, ...props }) => (
-                  <ol className="list-decimal list-inside mb-4 space-y-1" {...props} />
-                ),
-                table: ({ node, ...props }) => (
-                  <table className="w-full table-auto border border-gray-200 mb-6" {...props} />
-                ),
-                thead: ({ node, ...props }) => (
-                  <thead className="bg-gray-100" {...props} />
-                ),
-                th: ({ node, ...props }) => (
-                  <th className="px-4 py-2 text-left font-medium" {...props} />
-                ),
-                td: ({ node, ...props }) => (
-                  <td className="px-4 py-2 border-t" {...props} />
-                ),
+                p: ({ node, ...props }) => <p className="mb-4 leading-relaxed" {...props} />,
+                div: ({ node, className, children, ...props }) =>
+                  className?.includes('katex-display') ? (
+                    <div className="my-6 p-4 bg-white rounded-lg shadow-sm text-center" {...props}>
+                      {children}
+                    </div>
+                  ) : (
+                    <div {...props}>{children}</div>
+                  ),
+                ul: ({ node, ...props }) => <ul className="list-disc list-inside mb-4 space-y-1" {...props} />,
+                ol: ({ node, ...props }) => <ol className="list-decimal list-inside mb-4 space-y-1" {...props} />,
+                table: ({ node, ...props }) => <table className="w-full table-auto border border-gray-200 mb-6" {...props} />,
+                thead: ({ node, ...props }) => <thead className="bg-gray-100" {...props} />,
+                th: ({ node, ...props }) => <th className="px-4 py-2 text-left font-medium" {...props} />,
+                td: ({ node, ...props }) => <td className="px-4 py-2 border-t" {...props} />,
                 code: ({ inline, children, ...props }) =>
                   inline ? (
                     <code className="bg-gray-100 px-1 rounded" {...props}>
