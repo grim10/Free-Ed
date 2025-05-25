@@ -1,3 +1,5 @@
+// 🔧 Ensure you have installed: react-markdown, remark-gfm, react-helmet, slugify
+// npm install react-markdown remark-gfm react-helmet slugify
 import React, { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
