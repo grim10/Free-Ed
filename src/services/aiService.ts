@@ -27,16 +27,16 @@ class CacheService {
     }
     return e.content;
   }
-  set(key: string, content: string): void {
+  set(key: string, content: string) {
     this.store.set(key, { content, timestamp: Date.now() });
   }
 }
 
-/** Retryable HTTP status codes */
+/** Retryable HTTP codes */
 const RETRYABLE = new Set([408, 429, 500, 502, 503, 504]);
 const isRetryable = (err: any) => RETRYABLE.has(err?.status);
 
-/** User-friendly error messages */
+/** Friendly error messages */
 const Errors = {
   invalidKey:    'Invalid API key. Please verify your OpenAI configuration.',
   rateLimit:     'Rate limit reached. Try again later.',
@@ -50,9 +50,8 @@ function formatError(err: any): string {
   return Errors.generic;
 }
 
-/** Prompt templates forcing real Markdown headings + LaTeX */
-const promptTemplates: Record<PromptType,string> = {
-  'explain-simply': `
+// Define each template separately—no self reference!
+const explainSimplyTemplate = `
 Generate an IIT-JEE–style explanation of **%TOPIC%**. Use exactly this Markdown outline:
 
 ## Overview
@@ -81,9 +80,9 @@ Explain each symbol below.
 - Key point 2
 
 Return only the raw Markdown, with ## headings, - bullets, numbered lists, and $$…$$ math. No extra formatting instructions.
-`.trim(),
+`.trim();
 
-  'visual-guide': `
+const visualGuideTemplate = `
 Guide '%TOPIC%' through a mental diagram in Markdown:
 
 ## Visual Summary
@@ -102,20 +101,149 @@ Guide '%TOPIC%' through a mental diagram in Markdown:
 …
 
 Return raw Markdown only.
-  `.trim(),
+`.trim();
 
-  // …other templates unchanged, or update similarly…
-  'interactive-practice': promptTemplates['interactive-practice'],
-  'real-applications':    promptTemplates['real-applications'],
-  'deep-dive':            promptTemplates['deep-dive'],
-  'exam-mastery':         promptTemplates['exam-mastery'],
-  'concept-map':          promptTemplates['concept-map'],
-  'common-mistakes':      promptTemplates['common-mistakes'],
-  'follow-up':            promptTemplates['follow-up'],
-  'follow-up-answer':     promptTemplates['follow-up-answer'],
+const interactivePracticeTemplate = `
+Create an interactive practice session for '%TOPIC%':
+
+## Warm-up
+…
+
+## Problems
+1. Easy: …
+2. Medium: …
+3. Hard: …
+
+## Formula Review
+…
+
+## Reflection
+…
+
+Return raw Markdown only.
+`.trim();
+
+const realApplicationsTemplate = `
+List 4–6 real-world applications of '%TOPIC%' in Markdown:
+
+## Application 1
+…
+
+## Application 2
+…
+
+…
+
+Return raw Markdown only.
+`.trim();
+
+const deepDiveTemplate = `
+Deep dive into '%TOPIC%':
+
+## Theory
+…
+
+## Math
+Use inline equations like $E=mc^2$.
+
+## Edge Cases
+…
+
+## Research
+…
+
+Return raw Markdown only.
+`.trim();
+
+const examMasteryTemplate = `
+Exam mastery for '%TOPIC%':
+
+## Syllabus
+…
+
+## Formulas
+…
+
+## Questions
+…
+
+## Strategies
+…
+
+## Pitfalls
+…
+
+Return raw Markdown only.
+`.trim();
+
+const conceptMapTemplate = `
+Concept map for '%TOPIC%':
+
+## Prerequisites
+…
+
+## Related Topics
+…
+
+## Advanced Uses
+…
+
+## Study Path
+…
+
+Return raw Markdown only.
+`.trim();
+
+const commonMistakesTemplate = `
+Top 5 misconceptions in '%TOPIC%':
+
+1. Mistake: …
+   - Why wrong: …
+   - Correction: …
+
+… repeat for each …
+
+Return raw Markdown only.
+`.trim();
+
+const followUpTemplate = `
+Return a pure JSON array of 5 follow-up questions for '%TOPIC%'.
+Example: [{"id":"q1","question":"…","type":"conceptual"},…]
+No Markdown, no code fences.
+`.trim();
+
+const followUpAnswerTemplate = `
+Answer a follow-up question on '%TOPIC%':
+
+## Explanation
+…
+
+## Formula
+…
+
+## Example
+…
+
+## Resources
+…
+
+Return raw Markdown only.
+`.trim();
+
+const promptTemplates: Record<PromptType, string> = {
+  'explain-simply':       explainSimplyTemplate,
+  'visual-guide':         visualGuideTemplate,
+  'interactive-practice': interactivePracticeTemplate,
+  'real-applications':    realApplicationsTemplate,
+  'deep-dive':            deepDiveTemplate,
+  'exam-mastery':         examMasteryTemplate,
+  'concept-map':          conceptMapTemplate,
+  'common-mistakes':      commonMistakesTemplate,
+  'follow-up':            followUpTemplate,
+  'follow-up-answer':     followUpAnswerTemplate,
 };
 
-/** Sanitize AI output: strip only code fences */
+/** Strip only code fences; leave headings & LaTeX */
 function sanitize(text: string, type: PromptType): string {
   let out = text.replace(/```[\s\S]*?```/g, '').trim();
   if (type === 'follow-up') {
@@ -148,8 +276,8 @@ export class ContentService {
 
   public async generate(topic: string, type: PromptType): Promise<string> {
     const cacheKey = this.key(topic, type);
-    const cached = this.cache.get(cacheKey);
-    if (cached) return cached;
+    const hit = this.cache.get(cacheKey);
+    if (hit) return hit;
 
     const userPrompt = this.buildPrompt(topic, type);
     const call = async () => {
@@ -185,5 +313,4 @@ export class ContentService {
   }
 }
 
-// singleton
 export const contentService = new ContentService();
