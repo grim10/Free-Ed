@@ -1,4 +1,9 @@
-import React from 'react';
+```tsx
+import React, { useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Helmet } from 'react-helmet';
+import slugify from 'slugify';
 import { Content } from '../types';
 
 interface ContentSectionProps {
@@ -7,133 +12,123 @@ interface ContentSectionProps {
 }
 
 const ContentSection: React.FC<ContentSectionProps> = ({ content, isLoading }) => {
+  // Loading state
   if (isLoading) {
     return (
       <div className="bg-white rounded-lg p-6 shadow-sm animate-pulse">
         <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
-        <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-        <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-        <div className="h-4 bg-gray-200 rounded w-5/6 mb-4"></div>
-        <div className="h-40 bg-gray-200 rounded w-full mb-4"></div>
-        <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-        <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+        <div className="space-y-2">
+          <div className="h-4 bg-gray-200 rounded w-full"></div>
+          <div className="h-4 bg-gray-200 rounded w-full"></div>
+          <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+        </div>
       </div>
     );
   }
 
+  // No content state
   if (!content) {
     return (
-      <div className="bg-white rounded-lg p-6 shadow-sm flex flex-col items-center justify-center h-96">
-        <div className="text-6xl mb-4">🔍</div>
-        <h3 className="text-xl font-medium text-gray-700 mb-2">No content selected</h3>
-        <p className="text-gray-500 text-center max-w-md">
-          Select a topic and prompt type to generate personalized educational content
+      <div className="bg-white rounded-lg p-6 shadow-sm flex flex-col items-center justify-center h-80">
+        <span className="text-6xl mb-4">🔍</span>
+        <h3 className="text-xl font-semibold text-gray-700 mb-2">No content selected</h3>
+        <p className="text-gray-500 text-center max-w-sm">
+          Choose a topic to generate a dynamic, SEO-optimized article—complete with explanations, formulas, examples, and practice problems.
         </p>
       </div>
     );
   }
 
-  const formatContent = (content: string) => {
-    // Split content into sections based on numbered headers
-    const sections = content.split(/\*\*\d+\./);
+  // Meta description: first paragraph or first 160 chars
+  const metaDescription = useMemo(() => {
+    const firstParaMatch = content.content.trim().match(/^(?:[^#\n].+)(?=\n)/);
+    let desc = firstParaMatch ? firstParaMatch[0] : content.content.slice(0, 160);
+    return desc.replace(/[#_*>`~\-!\[\]]/g, '').trim();
+  }, [content]);
 
-    return sections.map((section, index) => {
-      if (!section.trim()) return null;
+  // JSON-LD structured data for Article schema
+  const jsonLd = useMemo(() => ({
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: content.title,
+    description: metaDescription,
+    datePublished: new Date().toISOString(),
+    author: { "@type": "Organization", name: "YourSiteName" },
+    articleBody: content.content
+  }), [content, metaDescription]);
 
-      // Extract title and content
-      const [title, ...contentParts] = section.split(':**');
-      const sectionContent = contentParts.join(':**').trim();
+  // Extract H2 headings for a Table of Contents
+  const headings = useMemo(() => {
+    const regex = /^##\s+(.+)$/gm;
+    const result: string[] = [];
+    let match;
+    while ((match = regex.exec(content.content)) !== null) {
+      result.push(match[1]);
+    }
+    return result;
+  }, [content]);
 
-      // Skip if no meaningful content
-      if (!sectionContent) return null;
+  // Custom heading renderer to inject IDs and classes
+  const headingClasses: Record<number, string> = {
+    2: 'text-2xl font-semibold mt-8 mb-4 text-gray-800',
+    3: 'text-xl font-medium mt-6 mb-3 text-gray-800'
+  };
 
-      // Format formulas with proper spacing and highlighting
-      const formattedContent = sectionContent.replace(
-        /(\$[^$]+\$)|(`[^`]+`)/g,
-        (match) => `<code class="bg-gray-100 px-2 py-1 rounded">${match.slice(1, -1)}</code>`
-      );
-
-      // Add emojis based on section content
-      const getEmoji = (title: string) => {
-        const lowerTitle = title.toLowerCase();
-        if (lowerTitle.includes('example')) return '📝';
-        if (lowerTitle.includes('application')) return '🔧';
-        if (lowerTitle.includes('takeaway')) return '💡';
-        if (lowerTitle.includes('step')) return '📋';
-        if (lowerTitle.includes('explanation')) return '🎯';
-        return '✨';
-      };
-
-      return (
-        <div key={index} className="mb-6">
-          {title && (
-            <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center gap-2">
-              {getEmoji(title)} {title}
-            </h3>
-          )}
-          <div className="space-y-4">
-            {formattedContent.split('- ').map((point, i) => {
-              if (!point.trim()) return null;
-              return (
-                <div key={i} className="flex items-start gap-2">
-                  <div className="text-blue-500 mt-1">•</div>
-                  <p className="text-gray-700 leading-relaxed">{point.trim()}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      );
-    });
+  const HeadingRenderer = ({ level, children }: any) => {
+    const text = String(children[0]);
+    const id = slugify(text, { lower: true, strict: true });
+    return React.createElement(
+      `h${level}`,
+      { id, className: headingClasses[level] || '' },
+      children
+    );
   };
 
   return (
-    <div className="bg-white rounded-lg p-6 shadow-sm">
-      <div className="animate-fadeIn">
-        <div className="flex items-center gap-2 mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">{content.title}</h2>
-          <span className="text-2xl">✨</span>
-        </div>
-        
-        <div className="prose max-w-none">
-          {formatContent(content.content)}
-        </div>
+    <>
+      {/* SEO Meta Tags */}
+      <Helmet>
+        <title>{content.title} | YourSiteName</title>
+        <meta name="description" content={metaDescription} />
+        <meta property="og:title" content={content.title} />
+        <meta property="og:description" content={metaDescription} />
+        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+      </Helmet>
 
-        {/* Quick Reference Box */}
-        <div className="mt-8 bg-blue-50 rounded-lg p-4 border border-blue-100">
-          <h4 className="text-blue-800 font-medium mb-3 flex items-center gap-2">
-            <span>📌</span> Quick Reference
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white rounded p-3 shadow-sm">
-              <p className="text-sm text-gray-600">Key Concepts</p>
-              <ul className="mt-2 space-y-1">
-                {content.content
-                  .match(/[^.!?]+[.!?]+/g)
-                  ?.slice(0, 3)
-                  .map((sentence, i) => (
-                    <li key={i} className="text-sm text-gray-700 flex items-start gap-2">
-                      <span className="text-blue-500 mt-1">•</span>
-                      {sentence.trim()}
-                    </li>
-                  ))}
-              </ul>
-            </div>
-            <div className="bg-white rounded p-3 shadow-sm">
-              <p className="text-sm text-gray-600">Remember</p>
-              <div className="mt-2 text-sm text-gray-700">
-                <p className="flex items-start gap-2">
-                  <span className="text-green-500 mt-1">✓</span>
-                  Focus on understanding the core principles before moving to complex applications
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      <article className="bg-white rounded-lg p-8 shadow-md prose prose-lg max-w-none">
+        {/* Article Title */}
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">{content.title}</h1>
+
+        {/* Optional Table of Contents */}
+        {headings.length > 0 && (
+          <nav className="mb-6 bg-gray-50 p-4 rounded">
+            <h2 className="text-lg font-semibold mb-2">In This Article</h2>
+            <ul className="list-disc list-inside space-y-1">
+              {headings.map((text) => {
+                const id = slugify(text, { lower: true, strict: true });
+                return (
+                  <li key={id}>
+                    <a href={`#${id}`} className="text-blue-600 hover:underline">
+                      {text}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        )}
+
+        {/* Render AI-generated Markdown */}
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{ h2: HeadingRenderer, h3: HeadingRenderer }}
+        >
+          {content.content}
+        </ReactMarkdown>
+      </article>
+    </>
   );
 };
 
 export default ContentSection;
+```
