@@ -137,7 +137,7 @@ const promptTemplates: Record<PromptType, string> = {
     "(Repeat for each.)",
 
   'follow-up':
-    "Generate exactly 5 follow-up questions for '%TOPIC%' as a pure JSON array. Do not include any markdown or code fences. Example output: [ { \"id\": \"q1\", \"question\": \"...\", \"type\": \"conceptual\" }, ... ]",
+    "Return ONLY a pure JSON array of 5 follow-up questions for '%TOPIC%'. NO markdown, NO backticks, NO explanation. Example: [{\"id\":\"q1\",\"question\":\"...\",\"type\":\"conceptual\"}]. The response must be valid JSON and nothing else.",
 
   'follow-up-answer':
     "Answer a follow-up question on '%TOPIC%' with:\n" +
@@ -150,12 +150,31 @@ const promptTemplates: Record<PromptType, string> = {
 /**
  * Sanitize AI output by removing markdown artifacts and backticks
  */
-function sanitizeOutput(text: string): string {
-  return text
+function sanitizeOutput(text: string, type: PromptType): string {
+  let sanitized = text
     .replace(/```[\s\S]*?```/g, '')    // remove code fences
-    .replace(/[`]/g, '')                 // remove stray backticks
-    .replace(/#+\s*/g, '')              // remove headings
+    .replace(/[`]/g, '')               // remove stray backticks
+    .replace(/#+\s*/g, '')             // remove headings
     .trim();
+
+  // For follow-up questions, ensure we have valid JSON
+  if (type === 'follow-up') {
+    try {
+      // Find the first '[' and last ']' to extract just the JSON array
+      const start = sanitized.indexOf('[');
+      const end = sanitized.lastIndexOf(']') + 1;
+      if (start >= 0 && end > start) {
+        sanitized = sanitized.slice(start, end);
+      }
+      // Validate that it's parseable
+      JSON.parse(sanitized);
+    } catch (e) {
+      console.error('Invalid JSON after sanitization:', sanitized);
+      return '[]'; // Return empty array as fallback
+    }
+  }
+
+  return sanitized;
 }
 
 /**
@@ -209,9 +228,9 @@ export class ContentService {
         retry: isRetryable,
       });
 
-      result = sanitizeOutput(result);
+      result = sanitizeOutput(result, type);
       this.cache.set(key, result);
-      return type === 'follow-up' ? result || '[]' : result;
+      return result;
     } catch (err: any) {
       console.error('ContentService error:', err);
       throw new Error(formatError(err));

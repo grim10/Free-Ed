@@ -58,13 +58,23 @@ const SubjectPage: React.FC<SubjectPageProps> = ({
         (one of: explanation, example, question, summary)`;
 
       const questionsJson = await generateContent(topicTitle, 'follow-up');
-      const questions = JSON.parse(questionsJson);
       
-      setFollowUpQuestions(questions.map((q: any, index: number) => ({
-        ...q,
-        id: `followup-${index}`,
-        topicId: selectedTopic?.id || ''
-      })));
+      try {
+        const questions = JSON.parse(questionsJson);
+        if (!Array.isArray(questions)) {
+          throw new Error('Response is not an array');
+        }
+        
+        setFollowUpQuestions(questions.map((q: any, index: number) => ({
+          ...q,
+          id: `followup-${index}`,
+          topicId: selectedTopic?.id || ''
+        })));
+      } catch (parseError) {
+        console.error('Failed to parse follow-up questions:', parseError);
+        console.debug('Raw response:', questionsJson);
+        setFollowUpQuestions([]);
+      }
     } catch (error: any) {
       console.error('Error generating follow-up questions:', error);
       setFollowUpQuestions([]);
