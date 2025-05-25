@@ -1,9 +1,7 @@
 import { openai } from '../config/openai';
 import { backOff } from 'exponential-backoff';
 
-/**
- * Supported prompt types
- */
+/** All supported prompt types */
 export type PromptType =
   | 'explain-simply'
   | 'visual-guide'
@@ -16,46 +14,46 @@ export type PromptType =
   | 'follow-up'
   | 'follow-up-answer';
 
-/** Simple in-memory cache */
-interface CacheEntry { content: string; timestamp: number; }
+/** Simple in-memory cache with TTL */
+interface CacheEntry { content: string; timestamp: number }
 class CacheService {
   private store = new Map<string, CacheEntry>();
   constructor(private ttlMs: number) {}
-  get(k: string) {
-    const e = this.store.get(k);
-    if (!e || Date.now() - e.timestamp > this.ttlMs) {
-      this.store.delete(k);
+  get(key: string): string | null {
+    const entry = this.store.get(key);
+    if (!entry || Date.now() - entry.timestamp > this.ttlMs) {
+      this.store.delete(key);
       return null;
     }
-    return e.content;
+    return entry.content;
   }
-  set(k: string, c: string) { this.store.set(k, { content: c, timestamp: Date.now() }); }
+  set(key: string, content: string) {
+    this.store.set(key, { content, timestamp: Date.now() });
+  }
 }
 
-/** Retryable HTTP codes */
+/** Retryable HTTP status codes */
 const RETRYABLE = new Set([408, 429, 500, 502, 503, 504]);
-const isRetryable = (e: any) => RETRYABLE.has(e?.status);
+const isRetryable = (err: any) => RETRYABLE.has(err?.status);
 
 /** Friendly error messages */
 const Errors = {
-  invalidKey:    'Invalid API key. Please verify your OpenAI configuration.',
-  rateLimit:     'Rate limit reached. Try again later.',
-  quota:         'Quota exceeded. Check billing or upgrade.',
-  generic:       'Failed to generate content. Please retry later.',
+  invalidKey:    'Invalid API key. Check your OpenAI configuration.',
+  rateLimit:     'Rate limit reached; try again later.',
+  quotaExceeded: 'Quota exceeded; check billing or upgrade.',
+  generic:       'Failed to generate content; please retry.',
 };
-function formatError(e: any) {
-  if (e.message?.includes('API key'))   return Errors.invalidKey;
-  if (e.status === 429)                 return Errors.rateLimit;
-  if (e.message?.includes('quota'))     return Errors.quota;
+function formatError(err: any): string {
+  if (err.message?.includes('API key'))   return Errors.invalidKey;
+  if (err.status === 429)                return Errors.rateLimit;
+  if (err.message?.includes('quota'))    return Errors.quotaExceeded;
   return Errors.generic;
 }
 
-/**
- * Prompt templates forcing real Markdown headings + LaTeX
- */
-const promptTemplates: Record<PromptType, string> = {
+/** Prompt templates that output real Markdown headings + LaTeX */
+const promptTemplates: Record<PromptType,string> = {
   'explain-simply': `
-Generate an IIT-JEE–style explanation of **%TOPIC%**. Use *exactly* this Markdown outline:
+Generate an IIT-JEE–style explanation of **%TOPIC%**. Use exactly this Markdown outline:
 
 ## Overview
 A concise definition and why it matters.
@@ -64,90 +62,183 @@ A concise definition and why it matters.
 A simple real-world analogy.
 
 ## Core Concepts
-- Concept: description
-- (3–5 bullets)
+- Concept: description  
+(3–5 bullet points)
 
 ## Formula & Derivation
 Use display math:
 $$
 \\mathcal{E} = -\\frac{d\\Phi}{dt}
 $$
-Then explain each symbol below.
+Explain each symbol below.
 
 ## Examples
-1. First practical example with steps.
-2. Second example illustrating the concept.
+1. First example with step-by-step solution.  
+2. Second illustrative example.
 
 ## Takeaways
-- Key point 1
-- Key point 2
+- Key point 1  
+- Key point 2  
 
-Return **only** the raw Markdown (with `##` headings, `-` bullets, numbered lists, and `$$…$$` math). No extra formatting instructions.
-`,
-  'visual-guide':
-    "Guide the reader through a mental diagram of '%TOPIC%' using plain text. Structure:\n" +
-    "1) Visual summary: Describe the overall layout.\n" +
-    "2) Elements: Name each part and its role.\n" +
-    "3) Flow: Explain how parts connect.\n" +
-    "4) Sketch: Instructions to draw the diagram.\n" +
-    "5) Formula notes: State any formula inline.",
-  'interactive-practice':
-    "Create an interactive practice session for '%TOPIC%' with:\n" +
-    "- Warm-up question + explanation.\n" +
-    "- Three problems (easy, medium, hard) each with hint, solution steps, and answer.\n" +
-    "- Formula review: List formulas with descriptions.\n" +
-    "- Reflection: Prompt learner to note mistakes.",
-  'real-applications':
-    "List 4–6 real-world applications of '%TOPIC%':\n" +
-    "Application: [Name]\n" +
-    "Domain: [Field]\n" +
-    "Use case: Brief description.\n" +
-    "Formula: e.g., P = V × I\n" +
-    "Benefits: Key advantages\n" +
-    "Example: Short real-world scenario.",
-  'deep-dive':
-    "Offer a deep dive on '%TOPIC%' covering:\n" +
-    "1) Theory: Core principles.\n" +
-    "2) Math: State equations (e.g., ∇·E = ρ/ε₀) and explain.\n" +
-    "3) Edge cases: Special conditions.\n" +
-    "4) Research: Recent studies and future directions.",
-  'exam-mastery':
-    "Craft an exam guide for '%TOPIC%' with:\n" +
-    "1) Syllabus: Subtopics list.\n" +
-    "2) Formulas: Each with use-case.\n" +
-    "3) Questions: One MCQ + one derivation with answers.\n" +
-    "4) Strategies: Tips for quick solving.\n" +
-    "5) Pitfalls: Common errors & fixes.",
-  'concept-map':
-    "Map connections for '%TOPIC%' via:\n" +
-    "1) Prerequisites: What to learn first.\n" +
-    "2) Related topics: Links explained.\n" +
-    "3) Advanced uses: Integrations.\n" +
-    "4) Path: Study sequence.",
-  'common-mistakes':
-    "Identify the top 5 misconceptions in '%TOPIC%':\n" +
-    "Mistake: [Description]\n" +
-    "Why wrong: [Explanation]\n" +
-    "Correct: [Clarification]\n" +
-    "(Repeat for each.)",
-  'follow-up':
-    "Return ONLY a pure JSON array of 5 follow-up questions for '%TOPIC%'. NO markdown or backticks. Example:\n" +
-    `[{"id":"q1","question":"...","type":"conceptual"}, ...]`,
-  'follow-up-answer':
-    "Answer a follow-up question on '%TOPIC%' with:\n" +
-    "Explanation: Step-by-step.\n" +
-    "Formula: Inline + explain variables.\n" +
-    "Example: One real scenario.\n" +
-    "Resources: 1–2 suggestions.",
+Return only the raw Markdown, with `##` headings, `-` bullets, numbered lists, and `$$…$$` math. No extra formatting instructions.
+  `.trim(),
+
+  'visual-guide': `
+Guide '%TOPIC%' through a mental diagram in Markdown:
+
+## Visual Summary
+…
+
+## Elements
+…
+
+## Flow
+…
+
+## Sketch
+…
+
+## Formula Notes
+…
+
+Return raw Markdown only.
+  `.trim(),
+
+  'interactive-practice': `
+Create an interactive practice session for '%TOPIC%':
+
+## Warm-up
+…
+
+## Problems
+1. Easy: …  
+2. Medium: …  
+3. Hard: …
+
+## Formula Review
+…
+
+## Reflection
+…
+
+Return raw Markdown only.
+  `.trim(),
+
+  'real-applications': `
+List 4–6 real-world applications of '%TOPIC%' in Markdown:
+
+## Application 1
+…
+
+## Application 2
+…
+
+…
+
+Return raw Markdown only.
+  `.trim(),
+
+  'deep-dive': `
+Deep dive into '%TOPIC%':
+
+## Theory
+…
+
+## Math
+Use inline equations like $E=mc^2$.  
+
+## Edge Cases
+…
+
+## Research
+…
+
+Return raw Markdown only.
+  `.trim(),
+
+  'exam-mastery': `
+Exam mastery for '%TOPIC%':
+
+## Syllabus
+…
+
+## Formulas
+…
+
+## Questions
+…
+
+## Strategies
+…
+
+## Pitfalls
+…
+
+Return raw Markdown only.
+  `.trim(),
+
+  'concept-map': `
+Concept map for '%TOPIC%':
+
+## Prerequisites
+…
+
+## Related Topics
+…
+
+## Advanced Uses
+…
+
+## Study Path
+…
+
+Return raw Markdown only.
+  `.trim(),
+
+  'common-mistakes': `
+Top 5 misconceptions in '%TOPIC%':
+
+1. Mistake: …  
+   - Why wrong: …  
+   - Correction: …  
+
+… repeat for each …
+
+Return raw Markdown only.
+  `.trim(),
+
+  'follow-up': `
+Return a pure JSON array of 5 follow-up questions for '%TOPIC%'.  
+Example: [{"id":"q1","question":"…","type":"conceptual"},…]  
+No Markdown, no code fences.
+  `.trim(),
+
+  'follow-up-answer': `
+Answer a follow-up question on '%TOPIC%':
+
+## Explanation
+…
+
+## Formula
+…
+
+## Example
+…
+
+## Resources
+…
+
+Return raw Markdown only.
+  `.trim(),
 };
 
-/** Only strip code fences; leave headings & LaTeX */
+/** Sanitize AI output: strip only code fences, keep headings + LaTeX */
 function sanitize(text: string, type: PromptType): string {
   let out = text.replace(/```[\s\S]*?```/g, '').trim();
   if (type === 'follow-up') {
     try {
-      const s = out.indexOf('['), e = out.lastIndexOf(']') + 1;
-      out = out.slice(s, e);
+      const start = out.indexOf('['), end = out.lastIndexOf(']') + 1;
+      out = out.slice(start, end);
       JSON.parse(out);
     } catch {
       return '[]';
@@ -161,7 +252,8 @@ export class ContentService {
 
   constructor(
     private model = 'gpt-4o-mini',
-    private systemMsg = 'You are an expert IIT-JEE tutor. Use Markdown headings, bullet lists, and LaTeX only.'
+    private systemMsg =
+      'You are an expert IIT-JEE tutor. Always output in Markdown with headings, bullet lists, and LaTeX only.'
   ) {}
 
   private key(topic: string, type: PromptType) {
@@ -172,9 +264,9 @@ export class ContentService {
   }
 
   public async generate(topic: string, type: PromptType): Promise<string> {
-    const k = this.key(topic, type);
-    const hit = this.cache.get(k);
-    if (hit) return hit;
+    const cacheKey = this.key(topic, type);
+    const cached = this.cache.get(cacheKey);
+    if (cached) return cached;
 
     const userPrompt = this.prompt(topic, type);
     const call = async () => {
@@ -201,7 +293,7 @@ export class ContentService {
         retry:         isRetryable,
       });
       result = sanitize(result, type);
-      this.cache.set(k, result);
+      this.cache.set(cacheKey, result);
       return result;
     } catch (err: any) {
       console.error('AI service error:', err);
@@ -210,5 +302,5 @@ export class ContentService {
   }
 }
 
-// singleton
+// singleton instance
 export const contentService = new ContentService();
