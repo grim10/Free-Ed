@@ -1,8 +1,6 @@
-// src/services/AIservices.tsx
-
+// src/services/aiService.ts
 import { openai } from '../config/openai';
 import { backOff } from 'exponential-backoff';
-import slugify from 'slugify';
 
 /**
  * Supported prompt types for content generation
@@ -27,9 +25,7 @@ interface CacheEntry {
   timestamp: number;
 }
 
-/**
- * In-memory cache with TTL
- */
+/** In-memory cache with TTL */
 class CacheService {
   private readonly store = new Map<string, CacheEntry>();
   constructor(private readonly ttlMs: number) {}
@@ -47,17 +43,13 @@ class CacheService {
   }
 }
 
-/**
- * Retryable HTTP status codes
- */
+/** Retryable HTTP status codes */
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 function isRetryable(error: any): boolean {
   return RETRYABLE_STATUS.has(error?.status);
 }
 
-/**
- * User-friendly error messages
- */
+/** User-friendly error messages */
 const ErrorMessages = {
   invalidKey: 'Invalid API key. Please verify your OpenAI configuration.',
   rateLimit: 'Rate limit reached. Try again later or upgrade your plan.',
@@ -72,67 +64,61 @@ function formatError(error: any): string {
 }
 
 /**
- * Prompt templates designed to output real Markdown headings and LaTeX.
+ * Prompt templates that force real markdown headings and LaTeX
  */
 const promptTemplates: Record<PromptType, string> = {
   'explain-simply': `
-Generate an IIT-JEE–style explanation of **%TOPIC%**, using *exactly* the following structure and Markdown:
+Generate an IIT-JEE–style explanation of **%TOPIC%**. EXACTLY use this Markdown structure:
 
 ## Overview
-A short definition and why it matters.
+A concise definition and why it matters.
 
 ## Analogy
-A familiar example that makes it click.
+A simple real-world analogy.
 
 ## Core Concepts
-- (List 3–5 bullet points, **each** as “- Concept: description.”)
+- List 3 to 5 bullet points in the format "Concept: description."
 
 ## Formula & Derivation
-Use display math delimiters:
-\`\`\`
+Use display math:
 $$
 \\mathcal{E} = -\\frac{d\\Phi}{dt}
 $$
-\`\`\`
-Explain each symbol below the formula.
+Then explain each symbol below.
 
 ## Examples
-1. Example 1: step-by-step application.
-2. Example 2: another scenario.
+1. First practical example with step-by-step.
+2. Second example illustrating the concept.
 
 ## Takeaways
-- (List 2–4 key points to remember.)
+- List 2 to 4 key points to remember.
 
-**Return only the raw Markdown**, with `##` headings, `-` bullets, numbered `1.` items, and LaTeX in `$$…$$`. No extra commentary about formatting.
+Return **only** the raw Markdown (with H2 headings “## …”, bullets “- …”, numbered lists “1.”, and LaTeX in “$$…$$”). No extra commentary about formatting.
 `,
-
-  'visual-guide': `
-…same pattern…  // you can update other templates similarly if desired
-`,
-  // …other promptTypes untouched…
+  'visual-guide': promptTemplates['visual-guide'],       // unchanged
+  'interactive-practice': promptTemplates['interactive-practice'],
+  'real-applications': promptTemplates['real-applications'],
+  'deep-dive': promptTemplates['deep-dive'],
+  'exam-mastery': promptTemplates['exam-mastery'],
+  'concept-map': promptTemplates['concept-map'],
+  'common-mistakes': promptTemplates['common-mistakes'],
   'follow-up': promptTemplates['follow-up'],
   'follow-up-answer': promptTemplates['follow-up-answer'],
 };
 
-/**
- * Sanitize AI output by *only* removing code fences and trimming.
- * We no longer strip backticks or markdown headings!
- */
+/** Sanitize AI output (only strip code fences now) */
 function sanitizeOutput(text: string, type: PromptType): string {
   let sanitized = text
-    .replace(/```[\s\S]*?```/g, '')  // remove code-fence blocks
+    .replace(/```[\s\S]*?```/g, '') // remove any code fences
     .trim();
 
   if (type === 'follow-up') {
     try {
       const start = sanitized.indexOf('[');
       const end = sanitized.lastIndexOf(']') + 1;
-      if (start >= 0 && end > start) {
-        sanitized = sanitized.slice(start, end);
-      }
+      sanitized = sanitized.slice(start, end);
       JSON.parse(sanitized);
     } catch {
-      console.error('Invalid JSON after sanitization:', sanitized);
       return '[]';
     }
   }
@@ -140,16 +126,14 @@ function sanitizeOutput(text: string, type: PromptType): string {
   return sanitized;
 }
 
-/**
- * Service responsible for generating AI content
- */
+/** Service responsible for generating AI content */
 export class ContentService {
   private readonly cache = new CacheService(24 * 60 * 60 * 1000);
 
   constructor(
     private readonly model = 'gpt-4o-mini',
     private readonly systemMessage =
-      'You are an expert IIT-JEE tutor. Output MUST use Markdown headings (## Overview, ## Analogy, etc.), bullet lists, and LaTeX in $$…$$ delimiters. No extra formatting commentary.'
+      'You are an expert IIT-JEE tutor. Output MUST use Markdown headings, bullet lists, and LaTeX. No formatting commentary.'
   ) {}
 
   private getCacheKey(topic: string, type: PromptType): string {
@@ -200,5 +184,5 @@ export class ContentService {
   }
 }
 
-// Export a singleton instance
+// Export a singleton
 export const contentService = new ContentService();
