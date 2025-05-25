@@ -8,6 +8,17 @@ export interface Topic {
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
   parentId?: string;
   relatedTopics?: string[];
+  chapterId: string;
+}
+
+export interface Chapter {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  topics: string[];
+  duration: number;
+  subjectId: string;
 }
 
 export interface Subject {
@@ -15,7 +26,7 @@ export interface Subject {
   name: string;
   description: string;
   imageUrl: string;
-  rootTopics: string[];
+  chapters: Chapter[];
 }
 
 export interface Content {
