@@ -12,7 +12,7 @@ import {
   getRelatedTopics,
   getTopicById 
 } from '../data/mockData';
-import { generateContent } from '../services/aiService';
+import { contentService } from '../services/aiService';
 
 interface SubjectPageProps {
   subject: Subject;
@@ -57,7 +57,7 @@ const SubjectPage: React.FC<SubjectPageProps> = ({
         Format the response as a JSON array of objects with properties: id, question, contentType 
         (one of: explanation, example, question, summary)`;
 
-      const questionsJson = await generateContent(topicTitle, 'follow-up');
+      const questionsJson = await contentService.generate(topicTitle, 'follow-up');
       
       try {
         const questions = JSON.parse(questionsJson);
@@ -88,7 +88,7 @@ const SubjectPage: React.FC<SubjectPageProps> = ({
     setError(null);
     
     try {
-      const generatedContent = await generateContent(selectedTopic.title, promptType);
+      const generatedContent = await contentService.generate(selectedTopic.title, promptType as any);
       
       const newContent: Content = {
         id: `${selectedTopic.id}-${promptType}`,
@@ -116,7 +116,7 @@ const SubjectPage: React.FC<SubjectPageProps> = ({
     setError(null);
     
     try {
-      const generatedContent = await generateContent(selectedTopic.title, 'follow-up-answer');
+      const generatedContent = await contentService.generate(selectedTopic.title, 'follow-up-answer');
       
       const newContent: Content = {
         id: `followup-${question.id}`,
