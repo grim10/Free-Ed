@@ -1,12 +1,20 @@
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 1) Pull in KaTeX’s core CSS so fractions, integrals, etc. look sharp     */
+@import "katex/dist/katex.min.css";
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 2) Tailwind’s core layers                                             */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 3) Extend with your custom utilities, including math tweaks             */
 @layer utilities {
+  /* fade-in animation (you already have) */
   .animate-fadeIn {
     animation: fadeIn 0.5s ease-in-out;
   }
-  
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -17,8 +25,25 @@
       transform: translateY(0);
     }
   }
+
+  /* KaTeX display math blocks—bigger, centered, extra breathing room */
+  .katex-display {
+    @apply my-6 mx-auto text-lg;
+  }
+
+  /* Inline math sits neatly within text flow */
+  .katex {
+    @apply align-baseline;
+  }
+
+  /* Hide the MathML fallback (optional) */
+  .katex .katex-mathml {
+    display: none;
+  }
 }
 
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 4) Global body font (unchanged)                                          */
 body {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
