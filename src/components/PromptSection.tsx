@@ -165,7 +165,7 @@ const PromptSection: React.FC<PromptSectionProps> = ({
       {isGenerating && (
         <div className="mt-6 flex items-center justify-center p-4 bg-blue-50 rounded-lg">
           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-3"></div>
-          <span className="text-blue-700">Generating personalized content...</span>
+          <span className="text-blue-700">Generating personalized content for you...</span>
         </div>
       )}
     </div>
