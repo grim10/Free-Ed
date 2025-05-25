@@ -1,4 +1,3 @@
-// src/services/aiService.ts
 import { openai } from '../config/openai';
 import { backOff } from 'exponential-backoff';
 
@@ -17,58 +16,46 @@ export type PromptType =
   | 'follow-up'
   | 'follow-up-answer';
 
-/**
- * Interface for cache entries
- */
-interface CacheEntry {
-  content: string;
-  timestamp: number;
-}
-
-/** In-memory cache with TTL */
+/** Simple in-memory cache with TTL */
+interface CacheEntry { content: string; timestamp: number; }
 class CacheService {
-  private readonly store = new Map<string, CacheEntry>();
-  constructor(private readonly ttlMs: number) {}
+  private store = new Map<string, CacheEntry>();
+  constructor(private ttlMs: number) {}
   get(key: string): string | null {
-    const entry = this.store.get(key);
-    if (!entry) return null;
-    if (Date.now() - entry.timestamp > this.ttlMs) {
+    const e = this.store.get(key);
+    if (!e || Date.now() - e.timestamp > this.ttlMs) {
       this.store.delete(key);
       return null;
     }
-    return entry.content;
+    return e.content;
   }
-  set(key: string, content: string): void {
+  set(key: string, content: string) {
     this.store.set(key, { content, timestamp: Date.now() });
   }
 }
 
 /** Retryable HTTP status codes */
-const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
-function isRetryable(error: any): boolean {
-  return RETRYABLE_STATUS.has(error?.status);
-}
+const RETRYABLE = new Set([408, 429, 500, 502, 503, 504]);
+const isRetryable = (err: any) => RETRYABLE.has(err?.status);
 
-/** User-friendly error messages */
-const ErrorMessages = {
+/** Friendly error messages */
+const Errors = {
   invalidKey: 'Invalid API key. Please verify your OpenAI configuration.',
-  rateLimit: 'Rate limit reached. Try again later or upgrade your plan.',
-  quotaExceeded: 'Quota exceeded. Check your billing or upgrade.',
-  generic: 'Failed to generate content. Please retry later.',
+  rateLimit:  'Rate limit reached. Try again later.',
+  quota:      'Quota exceeded. Check billing or upgrade.',
+  generic:    'Failed to generate content. Please retry.',
 };
-function formatError(error: any): string {
-  if (error.message?.includes('API key')) return ErrorMessages.invalidKey;
-  if (error.status === 429) return ErrorMessages.rateLimit;
-  if (error.message?.includes('quota')) return ErrorMessages.quotaExceeded;
-  return ErrorMessages.generic;
+function formatError(err: any) {
+  if (err.message?.includes('API key')) return Errors.invalidKey;
+  if (err.status === 429)          return Errors.rateLimit;
+  if (err.message?.includes('quota')) return Errors.quota;
+  return Errors.generic;
 }
 
-/**
- * Prompt templates that force real markdown headings and LaTeX
- */
-const promptTemplates: Record<PromptType, string> = {
+/** Prompt templates forcing real Markdown headings + LaTeX */
+const promptTemplates: Record<PromptType,string> = {
   'explain-simply': `
-Generate an IIT-JEE–style explanation of **%TOPIC%**. EXACTLY use this Markdown structure:
+Generate an IIT-JEE–style explanation of **%TOPIC%**. Use *exactly* this Markdown outline:
 
 ## Overview
 A concise definition and why it matters.
@@ -77,7 +64,8 @@ A concise definition and why it matters.
 A simple real-world analogy.
 
 ## Core Concepts
-- List 3 to 5 bullet points in the format "Concept: description."
+- Concept: description
+- (3–5 bullets total)
 
 ## Formula & Derivation
 Use display math:
@@ -87,102 +75,97 @@ $$
 Then explain each symbol below.
 
 ## Examples
-1. First practical example with step-by-step.
-2. Second example illustrating the concept.
+1. First practical example with steps.
+2. Second example illustrating concept.
 
 ## Takeaways
-- List 2 to 4 key points to remember.
+- Key point 1
+- Key point 2
 
-Return **only** the raw Markdown (with H2 headings “## …”, bullets “- …”, numbered lists “1.”, and LaTeX in “$$…$$”). No extra commentary about formatting.
+Return *only* the raw Markdown (with `##` headings, `-` bullets, numbered lists, and `$$…$$` math). No extra formatting instructions.
 `,
-  'visual-guide': promptTemplates['visual-guide'],       // unchanged
-  'interactive-practice': promptTemplates['interactive-practice'],
-  'real-applications': promptTemplates['real-applications'],
-  'deep-dive': promptTemplates['deep-dive'],
-  'exam-mastery': promptTemplates['exam-mastery'],
-  'concept-map': promptTemplates['concept-map'],
-  'common-mistakes': promptTemplates['common-mistakes'],
-  'follow-up': promptTemplates['follow-up'],
-  'follow-up-answer': promptTemplates['follow-up-answer'],
+  // You can update other templates similarly if needed
+  'visual-guide':        promptTemplates['visual-guide'],
+  'interactive-practice':promptTemplates['interactive-practice'],
+  'real-applications':   promptTemplates['real-applications'],
+  'deep-dive':           promptTemplates['deep-dive'],
+  'exam-mastery':        promptTemplates['exam-mastery'],
+  'concept-map':         promptTemplates['concept-map'],
+  'common-mistakes':     promptTemplates['common-mistakes'],
+  'follow-up':           promptTemplates['follow-up'],
+  'follow-up-answer':    promptTemplates['follow-up-answer'],
 };
 
-/** Sanitize AI output (only strip code fences now) */
-function sanitizeOutput(text: string, type: PromptType): string {
-  let sanitized = text
-    .replace(/```[\s\S]*?```/g, '') // remove any code fences
-    .trim();
-
+/**
+ * Only strip triple-backtick fences; leave headings & LaTeX intact
+ */
+function sanitize(text: string, type: PromptType): string {
+  let out = text.replace(/```[\s\S]*?```/g, '').trim();
   if (type === 'follow-up') {
     try {
-      const start = sanitized.indexOf('[');
-      const end = sanitized.lastIndexOf(']') + 1;
-      sanitized = sanitized.slice(start, end);
-      JSON.parse(sanitized);
+      const s = out.indexOf('['), e = out.lastIndexOf(']') + 1;
+      out = out.slice(s, e);
+      JSON.parse(out);
     } catch {
       return '[]';
     }
   }
-
-  return sanitized;
+  return out;
 }
 
-/** Service responsible for generating AI content */
+/** Core service */
 export class ContentService {
-  private readonly cache = new CacheService(24 * 60 * 60 * 1000);
-
+  private cache = new CacheService(24 * 60 * 60 * 1000);
   constructor(
-    private readonly model = 'gpt-4o-mini',
-    private readonly systemMessage =
-      'You are an expert IIT-JEE tutor. Output MUST use Markdown headings, bullet lists, and LaTeX. No formatting commentary.'
+    private model = 'gpt-4o-mini',
+    private systemMsg = 'You are an expert IIT-JEE tutor. Output MUST use Markdown headings, bullet lists, and LaTeX. No formatting commentary.'
   ) {}
 
-  private getCacheKey(topic: string, type: PromptType): string {
+  private key(topic: string, type: PromptType) {
     return `${topic}::${type}`;
   }
-
-  private buildPrompt(topic: string, type: PromptType): string {
+  private build(topic: string, type: PromptType) {
     return promptTemplates[type].replace(/%TOPIC%/g, topic);
   }
 
   public async generate(topic: string, type: PromptType): Promise<string> {
-    const key = this.getCacheKey(topic, type);
-    const cached = this.cache.get(key);
-    if (cached) return cached;
+    const cacheKey = this.key(topic, type);
+    const hit = this.cache.get(cacheKey);
+    if (hit) return hit;
 
-    const userPrompt = this.buildPrompt(topic, type);
-    const fetcher = async () => {
-      const resp = await openai.chat.completions.create({
+    const userPrompt = this.build(topic, type);
+    const call = async () => {
+      const rsp = await openai.chat.completions.create({
         model: this.model,
         messages: [
-          { role: 'system', content: this.systemMessage },
-          { role: 'user', content: userPrompt },
+          { role: 'system', content: this.systemMsg },
+          { role: 'user',   content: userPrompt },
         ],
         temperature: 0.7,
         max_tokens: 2000,
       });
-      const content = resp.choices?.[0]?.message?.content;
-      if (!content) throw new Error('No content returned');
-      return content;
+      const txt = rsp.choices?.[0]?.message?.content;
+      if (!txt) throw new Error('No content returned');
+      return txt;
     };
 
     try {
-      let result = await backOff(fetcher, {
+      let result = await backOff(call, {
         numOfAttempts: 5,
         startingDelay: 2000,
-        timeMultiple: 2,
-        maxDelay: 20000,
-        retry: isRetryable,
+        timeMultiple:  2,
+        maxDelay:      20000,
+        retry:         isRetryable,
       });
-
-      result = sanitizeOutput(result, type);
-      this.cache.set(key, result);
+      result = sanitize(result, type);
+      this.cache.set(cacheKey, result);
       return result;
     } catch (err: any) {
-      console.error('ContentService error:', err);
+      console.error('AI service error:', err);
       throw new Error(formatError(err));
     }
   }
 }
 
-// Export a singleton
+// singleton
 export const contentService = new ContentService();
